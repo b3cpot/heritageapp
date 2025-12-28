@@ -2,8 +2,8 @@
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 
-// Mapbox Access Token
-mapboxgl.accessToken = 'pk.eyJ1IjoiYmVxaXIxMiIsImEiOiJjbWpxMnFmMGwxcm85M2RzZWpzdnd4eHcyIn0.bTykNYdGJ32NADnn17I3ug';
+// Mapbox Access Token - loaded from environment variable
+mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
 
 // Calculate distance between two coordinates using Haversine formula
 const calculateDistance = (lat1, lng1, lat2, lng2) => {
