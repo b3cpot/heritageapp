@@ -1,0 +1,210 @@
+/* History Heritage - Base Styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  font-family: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #0c0a09;
+  color: #fafaf9;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Cinzel', Georgia, serif;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1c1917;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #44403c;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #57534e;
+}
+
+/* Selection styling */
+::selection {
+  background: rgba(180, 83, 9, 0.4);
+  color: #fafaf9;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: scale(0); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Utility classes */
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-pop {
+  animation: pop 0.3s ease-out forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease-out forwards;
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Focus styles for accessibility */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid #b45309;
+  outline-offset: 2px;
+}
+
+/* Mapbox styling overrides for dark theme */
+.mapboxgl-popup-content {
+  background: #1c1917 !important;
+  color: #fafaf9 !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
+  border: 1px solid #292524 !important;
+}
+
+.mapboxgl-popup-tip {
+  border-top-color: #1c1917 !important;
+  border-bottom-color: #1c1917 !important;
+}
+
+.mapboxgl-popup-close-button {
+  color: #a8a29e !important;
+  font-size: 18px !important;
+  padding: 4px 8px !important;
+}
+
+.mapboxgl-popup-close-button:hover {
+  background: transparent !important;
+  color: #fafaf9 !important;
+}
+
+.mapboxgl-ctrl-group {
+  background: #1c1917 !important;
+  border: 1px solid #292524 !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.mapboxgl-ctrl-group button {
+  background: #1c1917 !important;
+  border-color: #292524 !important;
+}
+
+.mapboxgl-ctrl-group button:hover {
+  background: #292524 !important;
+}
+
+.mapboxgl-ctrl-group button + button {
+  border-top: 1px solid #292524 !important;
+}
+
+.mapboxgl-ctrl button.mapboxgl-ctrl-zoom-in .mapboxgl-ctrl-icon,
+.mapboxgl-ctrl button.mapboxgl-ctrl-zoom-out .mapboxgl-ctrl-icon,
+.mapboxgl-ctrl button.mapboxgl-ctrl-compass .mapboxgl-ctrl-icon {
+  filter: invert(1) !important;
+}
+
+.mapboxgl-ctrl-attrib {
+  background: rgba(28, 25, 23, 0.8) !important;
+  color: #78716c !important;
+  font-size: 10px !important;
+}
+
+.mapboxgl-ctrl-attrib a {
+  color: #a8a29e !important;
+}
+
+.heritage-marker {
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.heritage-marker:hover {
+  z-index: 100 !important;
+}
+
+/* Print styles */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+}
