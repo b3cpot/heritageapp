@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { supabase, testConnection, loadSitesFromDB, saveSiteToDB, saveAllSitesToDB, uploadImage } from './supabaseClient';
 
 // Mapbox Access Token - loaded from environment variable
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
@@ -30,6 +31,23 @@ const calculateRouteDistance = (routeSites) => {
   }
   return total;
 };
+
+// Available images for site selection (initial list)
+const defaultImages = [
+  { name: 'Butrint', file: '/images/butrint.jpg' },
+  { name: 'Apollonia', file: '/images/apollonia.jpg' },
+  { name: 'Rozafa Castle', file: '/images/rozafa.jpg' },
+  { name: 'Krujë Castle', file: '/images/kruja.jpg' },
+  { name: 'Berat Castle', file: '/images/berat.jpg' },
+  { name: 'Prizren', file: '/images/prizren.jpg' },
+  { name: 'Gjirokastrë', file: '/images/gjirokaster.jpg' },
+  { name: 'Durrës', file: '/images/durresi.jpg' },
+  { name: 'Castle (Generic)', file: '/images/castle.jpg' },
+  { name: 'Fortress (Generic)', file: '/images/fortress.jpg' },
+  { name: 'Monastery', file: '/images/monastery.jpg' },
+  { name: 'Mosque', file: '/images/mosque.jpg' },
+  { name: 'Ruins (Generic)', file: '/images/ruins.jpg' }
+];
 
 // ============================================
 // MAPBOX MAP COMPONENT
@@ -3188,6 +3206,46 @@ const InfoIcon = () => (
   </svg>
 );
 
+const TicketIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d6b76a" strokeWidth="2">
+    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+    <path d="M13 5v2" />
+    <path d="M13 17v2" />
+    <path d="M13 11v2" />
+  </svg>
+);
+
+const CalendarIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#d6b76a" strokeWidth="2">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+    <line x1="16" y1="2" x2="16" y2="6" />
+    <line x1="8" y1="2" x2="8" y2="6" />
+    <line x1="3" y1="10" x2="21" y2="10" />
+  </svg>
+);
+
+const BookOpenIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+    <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+  </svg>
+);
+
+const CameraIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+    <circle cx="12" cy="13" r="4" />
+  </svg>
+);
+
+const GlobeIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <line x1="2" y1="12" x2="22" y2="12" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+  </svg>
+);
+
 // ============================================
 // MAIN APP COMPONENT
 // ============================================
@@ -3211,10 +3269,108 @@ function App() {
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [editingSite, setEditingSite] = useState(null);
+  
+  // Sites list - start with default, will be replaced by Supabase data
   const [sitesList, setSitesList] = useState(heritageSites);
+  
+  const [adminFilter, setAdminFilter] = useState('all');
+  const [adminSearch, setAdminSearch] = useState('');
+  
+  // Images - just use defaults (uploads go to Supabase Storage)
+  const [availableImages, setAvailableImages] = useState(defaultImages);
+  
+  // Clear old localStorage data on mount (we use Supabase now)
+  useEffect(() => {
+    try {
+      localStorage.removeItem('heritageImages');
+      localStorage.removeItem('heritageSites');
+      console.log('🧹 Cleared old localStorage data');
+    } catch (e) {
+      // ignore
+    }
+  }, []);
+  
+  // Test Supabase connection on mount and load data from database
+  useEffect(() => {
+    const initSupabase = async () => {
+      const result = await testConnection();
+      if (result.success) {
+        console.log('🎉 Supabase is ready!');
+        
+        // Try to load sites from database
+        const sitesResult = await loadSitesFromDB();
+        if (sitesResult.success && sitesResult.data.length > 0) {
+          console.log(`📍 Loaded ${sitesResult.data.length} sites from Supabase`);
+          setSitesList(sitesResult.data);
+        } else if (sitesResult.data && sitesResult.data.length === 0) {
+          // Database is empty, seed it with initial data
+          console.log('📤 Database empty, uploading initial sites...');
+          const saveResult = await saveAllSitesToDB(heritageSites);
+          if (saveResult.success) {
+            console.log('✅ Initial sites saved to database!');
+          }
+        }
+      } else {
+        console.error('❌ Supabase connection failed:', result.error);
+      }
+    };
+    initSupabase();
+  }, []);
   
   // More details expanded state
   const [showMoreDetails, setShowMoreDetails] = useState(false);
+  
+  // Detail page state
+  const [detailSiteId, setDetailSiteId] = useState(null);
+  
+  // Map filter states
+  const [selectedEraFilters, setSelectedEraFilters] = useState([]); // Array of era names
+  const [selectedTypeFilters, setSelectedTypeFilters] = useState([]); // Array of site types
+  
+  // Get all unique site types
+  const siteTypes = useMemo(() => [...new Set(sitesList.map(s => s.type))].sort(), [sitesList]);
+  
+  // Toggle era filter
+  const toggleEraFilter = (eraName) => {
+    setSelectedEraFilters(prev => 
+      prev.includes(eraName) 
+        ? prev.filter(e => e !== eraName)
+        : [...prev, eraName]
+    );
+  };
+  
+  // Toggle type filter
+  const toggleTypeFilter = (type) => {
+    setSelectedTypeFilters(prev => 
+      prev.includes(type) 
+        ? prev.filter(t => t !== type)
+        : [...prev, type]
+    );
+  };
+  
+  // Clear all filters
+  const clearAllFilters = () => {
+    setSelectedEraFilters([]);
+    setSelectedTypeFilters([]);
+  };
+  
+  // Get nearby sites for a given site
+  const getNearbySites = (site, count = 5) => {
+    return sitesList
+      .filter(s => s.id !== site.id)
+      .map(s => ({
+        ...s,
+        distance: calculateDistance(site.lat, site.lng, s.lat, s.lng)
+      }))
+      .sort((a, b) => a.distance - b.distance)
+      .slice(0, count);
+  };
+  
+  // Navigate to detail page
+  const goToDetail = (siteId) => {
+    setDetailSiteId(siteId);
+    setPage('detail');
+  };
   
   // Add site to custom route
   const addToRoute = (site) => {
@@ -3249,10 +3405,22 @@ function App() {
     setEditingSite(null);
   };
   
-  // Update site (admin only)
-  const updateSite = (updatedSite) => {
+  // Update site (admin only) - saves to localStorage AND Supabase
+  const updateSite = async (updatedSite) => {
     setSitesList(sitesList.map(s => s.id === updatedSite.id ? updatedSite : s));
+    // Also update selectedSite if it's the same site being edited
+    if (selectedSite && selectedSite.id === updatedSite.id) {
+      setSelectedSite(updatedSite);
+    }
     setEditingSite(null);
+    
+    // Save to Supabase database
+    const result = await saveSiteToDB(updatedSite);
+    if (result.success) {
+      console.log(`✅ Site "${updatedSite.name}" saved to database`);
+    } else {
+      console.error('Failed to save to database:', result.error);
+    }
   };
 
   // Hero animation for homepage
@@ -3277,14 +3445,26 @@ function App() {
     return () => clearInterval(interval);
   }, [isPlaying]);
 
-  // Filter sites based on selected year AND selected country
+  // Filter sites based on selected year, country, era filters, and type filters
   const visibleSites = useMemo(() =>
-    sitesList.filter(s => 
-      s.startYear <= selectedYear && 
-      s.endYear >= selectedYear &&
-      (!selectedCountry || s.region === selectedCountry)
-    ),
-    [selectedYear, selectedCountry, sitesList]
+    sitesList.filter(s => {
+      // Time filter
+      const matchesTime = s.startYear <= selectedYear && s.endYear >= selectedYear;
+      
+      // Country filter
+      const matchesCountry = !selectedCountry || s.region === selectedCountry;
+      
+      // Era filter (if any selected, site must match at least one)
+      const matchesEra = selectedEraFilters.length === 0 || 
+        s.era.some(era => selectedEraFilters.includes(era));
+      
+      // Type filter (if any selected, site must match at least one)
+      const matchesType = selectedTypeFilters.length === 0 || 
+        selectedTypeFilters.includes(s.type);
+      
+      return matchesTime && matchesCountry && matchesEra && matchesType;
+    }),
+    [selectedYear, selectedCountry, sitesList, selectedEraFilters, selectedTypeFilters]
   );
 
   const currentEra = getEraForYear(selectedYear);
@@ -3371,20 +3551,39 @@ function App() {
           </button>
         ))}
         {isLoggedIn ? (
-          <button
-            onClick={handleLogout}
-            style={{
-              background: '#44403c',
-              border: 'none',
-              color: '#fafaf9',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              borderRadius: 6,
-              fontSize: 13
-            }}
-          >
-            Logout
-          </button>
+          <>
+            <button
+              onClick={() => setPage('admin')}
+              style={{
+                background: page === 'admin' ? '#78350f' : 'transparent',
+                border: '1px solid #b45309',
+                color: '#d6b76a',
+                cursor: 'pointer',
+                padding: '6px 12px',
+                borderRadius: 6,
+                fontSize: 13,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+            >
+              🛡️ Admin
+            </button>
+            <button
+              onClick={handleLogout}
+              style={{
+                background: '#44403c',
+                border: 'none',
+                color: '#fafaf9',
+                cursor: 'pointer',
+                padding: '6px 12px',
+                borderRadius: 6,
+                fontSize: 13
+              }}
+            >
+              Logout
+            </button>
+          </>
         ) : (
           <button
             onClick={() => setShowLoginModal(true)}
@@ -3403,6 +3602,887 @@ function App() {
         )}
       </nav>
     </header>
+  );
+
+  // ============================================
+  // LOGIN MODAL
+  // ============================================
+  const LoginModal = () => showLoginModal && (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2000
+    }}>
+      <div style={{
+        background: '#1c1917',
+        borderRadius: 16,
+        padding: 32,
+        width: 400,
+        maxWidth: '90%'
+      }}>
+        <h2 style={{
+          fontFamily: 'Cinzel, Georgia, serif',
+          fontSize: '1.5rem',
+          marginBottom: 8
+        }}>
+          Admin Login
+        </h2>
+        <p style={{ color: '#78716c', marginBottom: 24, fontSize: 14 }}>
+          Sign in to edit heritage site listings
+        </p>
+        
+        {loginError && (
+          <div style={{
+            background: '#991b1b',
+            color: '#fecaca',
+            padding: '8px 12px',
+            borderRadius: 6,
+            marginBottom: 16,
+            fontSize: 13
+          }}>
+            {loginError}
+          </div>
+        )}
+        
+        <input
+          type="email"
+          placeholder="Email"
+          value={loginEmail}
+          onChange={(e) => setLoginEmail(e.target.value)}
+          style={{
+            width: '100%',
+            padding: 12,
+            background: '#292524',
+            border: '1px solid #44403c',
+            borderRadius: 8,
+            color: '#fafaf9',
+            marginBottom: 12,
+            fontSize: 14,
+            boxSizing: 'border-box'
+          }}
+        />
+        
+        <input
+          type="password"
+          placeholder="Password"
+          value={loginPassword}
+          onChange={(e) => setLoginPassword(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+          style={{
+            width: '100%',
+            padding: 12,
+            background: '#292524',
+            border: '1px solid #44403c',
+            borderRadius: 8,
+            color: '#fafaf9',
+            marginBottom: 24,
+            fontSize: 14,
+            boxSizing: 'border-box'
+          }}
+        />
+        
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button
+            onClick={() => {
+              setShowLoginModal(false);
+              setLoginError('');
+            }}
+            style={{
+              flex: 1,
+              padding: 12,
+              background: '#44403c',
+              border: 'none',
+              borderRadius: 8,
+              color: '#fafaf9',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleLogin}
+            style={{
+              flex: 1,
+              padding: 12,
+              background: '#b45309',
+              border: 'none',
+              borderRadius: 8,
+              color: '#fff',
+              cursor: 'pointer',
+              fontWeight: 600
+            }}
+          >
+            Sign In
+          </button>
+        </div>
+        
+        <p style={{
+          textAlign: 'center',
+          color: '#78716c',
+          fontSize: 12,
+          marginTop: 16
+        }}>
+          Demo: admin@heritage.com / admin123
+        </p>
+      </div>
+    </div>
+  );
+
+  // ============================================
+  // EDIT SITE MODAL
+  // ============================================
+  const EditSiteModal = () => editingSite && (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.8)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 2000,
+      overflow: 'auto',
+      padding: 20
+    }}>
+      <div style={{
+        background: '#1c1917',
+        borderRadius: 16,
+        padding: 32,
+        width: 600,
+        maxWidth: '90%',
+        maxHeight: '90vh',
+        overflow: 'auto'
+      }}>
+        <h2 style={{
+          fontFamily: 'Cinzel, Georgia, serif',
+          fontSize: '1.5rem',
+          marginBottom: 24
+        }}>
+          Edit: {editingSite.name}
+        </h2>
+        
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Name</label>
+            <input
+              type="text"
+              value={editingSite.name}
+              onChange={(e) => setEditingSite({...editingSite, name: e.target.value})}
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Alternate Name</label>
+            <input
+              type="text"
+              value={editingSite.alternateName}
+              onChange={(e) => setEditingSite({...editingSite, alternateName: e.target.value})}
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Description</label>
+            <textarea
+              value={editingSite.description}
+              onChange={(e) => setEditingSite({...editingSite, description: e.target.value})}
+              rows={4}
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>County</label>
+              <input
+                type="text"
+                value={editingSite.county}
+                onChange={(e) => setEditingSite({...editingSite, county: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Type</label>
+              <select
+                value={editingSite.type}
+                onChange={(e) => setEditingSite({...editingSite, type: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="Archaeological">Archaeological</option>
+                <option value="Fortress">Fortress</option>
+                <option value="Religious">Religious</option>
+                <option value="Urban">Urban</option>
+                <option value="Museum">Museum</option>
+                <option value="Natural">Natural</option>
+              </select>
+            </div>
+          </div>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Entry Fee</label>
+              <input
+                type="text"
+                value={editingSite.visitInfo.entry}
+                onChange={(e) => setEditingSite({
+                  ...editingSite, 
+                  visitInfo: {...editingSite.visitInfo, entry: e.target.value}
+                })}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Hours</label>
+              <input
+                type="text"
+                value={editingSite.visitInfo.hours}
+                onChange={(e) => setEditingSite({
+                  ...editingSite, 
+                  visitInfo: {...editingSite.visitInfo, hours: e.target.value}
+                })}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
+              Highlights (comma separated)
+            </label>
+            <input
+              type="text"
+              value={editingSite.highlights.join(', ')}
+              onChange={(e) => setEditingSite({
+                ...editingSite, 
+                highlights: e.target.value.split(',').map(h => h.trim())
+              })}
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Duration */}
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Suggested Duration</label>
+            <input
+              type="text"
+              value={editingSite.visitInfo.duration || ''}
+              onChange={(e) => setEditingSite({
+                ...editingSite, 
+                visitInfo: {...editingSite.visitInfo, duration: e.target.value}
+              })}
+              placeholder="e.g., 1-2 hours"
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Era Tags */}
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
+              Historical Eras (comma separated)
+            </label>
+            <input
+              type="text"
+              value={editingSite.era.join(', ')}
+              onChange={(e) => setEditingSite({
+                ...editingSite, 
+                era: e.target.value.split(',').map(h => h.trim())
+              })}
+              placeholder="e.g., Ottoman, Byzantine, Roman"
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Extended Description / Historical Significance */}
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
+              Extended Description / Historical Significance (optional)
+            </label>
+            <textarea
+              value={editingSite.extendedDescription || ''}
+              onChange={(e) => setEditingSite({...editingSite, extendedDescription: e.target.value})}
+              rows={4}
+              placeholder="Add more detailed historical information about this site..."
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Visitor Tips */}
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
+              Best Time to Visit (optional)
+            </label>
+            <input
+              type="text"
+              value={editingSite.bestTimeToVisit || ''}
+              onChange={(e) => setEditingSite({...editingSite, bestTimeToVisit: e.target.value})}
+              placeholder="e.g., Early morning for fewer crowds, sunset for best photos"
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
+              What to Wear / Bring (optional)
+            </label>
+            <input
+              type="text"
+              value={editingSite.whatToWear || ''}
+              onChange={(e) => setEditingSite({...editingSite, whatToWear: e.target.value})}
+              placeholder="e.g., Comfortable shoes, modest clothing for religious sites"
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
+              Photo Tips (optional)
+            </label>
+            <input
+              type="text"
+              value={editingSite.photoTips || ''}
+              onChange={(e) => setEditingSite({...editingSite, photoTips: e.target.value})}
+              placeholder="e.g., Best views from the eastern tower, golden hour recommended"
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Fun Facts */}
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
+              Fun Facts / Did You Know (optional, one per line)
+            </label>
+            <textarea
+              value={editingSite.funFacts ? editingSite.funFacts.join('\n') : ''}
+              onChange={(e) => setEditingSite({
+                ...editingSite, 
+                funFacts: e.target.value.split('\n').filter(f => f.trim())
+              })}
+              rows={3}
+              placeholder="Enter each fun fact on a new line..."
+              style={{
+                width: '100%',
+                padding: 10,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 6,
+                color: '#fafaf9',
+                fontSize: 14,
+                resize: 'vertical',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          
+          {/* Rating and Reviews */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Rating (1-5)</label>
+              <input
+                type="number"
+                min="1"
+                max="5"
+                step="0.1"
+                value={editingSite.rating}
+                onChange={(e) => setEditingSite({...editingSite, rating: parseFloat(e.target.value)})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Number of Reviews</label>
+              <input
+                type="number"
+                value={editingSite.reviews}
+                onChange={(e) => setEditingSite({...editingSite, reviews: parseInt(e.target.value)})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Start/End Year */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Start Year (use - for BC)</label>
+              <input
+                type="number"
+                value={editingSite.startYear}
+                onChange={(e) => setEditingSite({...editingSite, startYear: parseInt(e.target.value)})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>End Year (2025 for present)</label>
+              <input
+                type="number"
+                value={editingSite.endYear}
+                onChange={(e) => setEditingSite({...editingSite, endYear: parseInt(e.target.value)})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Image Selector */}
+          <div>
+            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 8, display: 'block' }}>
+              Site Image
+            </label>
+            
+            {/* Upload New Image */}
+            <div style={{
+              display: 'flex',
+              gap: 8,
+              marginBottom: 12
+            }}>
+              <label style={{
+                flex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                padding: 12,
+                background: '#292524',
+                border: '2px dashed #44403c',
+                borderRadius: 8,
+                color: '#a8a29e',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                fontSize: 13
+              }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      // Upload to Supabase Storage
+                      console.log('📤 Uploading image to Supabase...');
+                      const result = await uploadImage(file);
+                      if (result.success) {
+                        const newImage = {
+                          name: file.name.replace(/\.[^/.]+$/, ""),
+                          file: result.url
+                        };
+                        setAvailableImages([newImage, ...availableImages]);
+                        setEditingSite({...editingSite, image: result.url});
+                        console.log('✅ Image uploaded:', result.url);
+                      } else {
+                        // Fallback to local base64 if upload fails
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                          const newImage = {
+                            name: file.name.replace(/\.[^/.]+$/, ""),
+                            file: event.target.result
+                          };
+                          setAvailableImages([newImage, ...availableImages]);
+                          setEditingSite({...editingSite, image: event.target.result});
+                        };
+                        reader.readAsDataURL(file);
+                        console.warn('⚠️ Upload failed, using local storage');
+                      }
+                    }
+                  }}
+                />
+                📤 Upload New Photo
+              </label>
+              <input
+                type="text"
+                placeholder="Or paste image URL..."
+                style={{
+                  flex: 1,
+                  padding: 12,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 8,
+                  color: '#fafaf9',
+                  fontSize: 13
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && e.target.value) {
+                    const url = e.target.value;
+                    const newImage = {
+                      name: 'Custom URL',
+                      file: url
+                    };
+                    setAvailableImages([newImage, ...availableImages]);
+                    setEditingSite({...editingSite, image: url});
+                    e.target.value = '';
+                  }
+                }}
+              />
+            </div>
+            
+            {/* Image Grid */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 8,
+              maxHeight: 200,
+              overflowY: 'auto',
+              padding: 4
+            }}>
+              {availableImages.map((img, index) => (
+                <div
+                  key={img.file + index}
+                  onClick={() => setEditingSite({...editingSite, image: img.file})}
+                  style={{
+                    position: 'relative',
+                    cursor: 'pointer',
+                    borderRadius: 8,
+                    overflow: 'hidden',
+                    border: editingSite.image === img.file ? '3px solid #d6b76a' : '3px solid transparent',
+                    opacity: editingSite.image === img.file ? 1 : 0.7,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <img
+                    src={img.file}
+                    alt={img.name}
+                    style={{
+                      width: '100%',
+                      height: 60,
+                      objectFit: 'cover',
+                      display: 'block'
+                    }}
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                  {editingSite.image === img.file && (
+                    <div style={{
+                      position: 'absolute',
+                      top: 4,
+                      right: 4,
+                      background: '#22c55e',
+                      borderRadius: '50%',
+                      width: 18,
+                      height: 18,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 12
+                    }}>✓</div>
+                  )}
+                  {/* Delete custom image button */}
+                  {!defaultImages.find(d => d.file === img.file) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAvailableImages(availableImages.filter((_, i) => i !== index));
+                      }}
+                      style={{
+                        position: 'absolute',
+                        top: 4,
+                        left: 4,
+                        background: '#dc2626',
+                        border: 'none',
+                        borderRadius: '50%',
+                        width: 18,
+                        height: 18,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 10,
+                        color: '#fff',
+                        cursor: 'pointer'
+                      }}
+                    >✕</button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 11, color: '#78716c', marginTop: 6 }}>
+              Selected: {availableImages.find(i => i.file === editingSite.image)?.name || 'Custom Image'}
+            </div>
+          </div>
+          
+          {/* Coordinates */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Latitude</label>
+              <input
+                type="number"
+                step="0.0001"
+                value={editingSite.lat}
+                onChange={(e) => setEditingSite({...editingSite, lat: parseFloat(e.target.value)})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Longitude</label>
+              <input
+                type="number"
+                step="0.0001"
+                value={editingSite.lng}
+                onChange={(e) => setEditingSite({...editingSite, lng: parseFloat(e.target.value)})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          </div>
+          
+          {/* Region */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Region</label>
+              <select
+                value={editingSite.region}
+                onChange={(e) => setEditingSite({...editingSite, region: e.target.value})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="Albania">Albania</option>
+                <option value="Kosovo">Kosovo</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Verified</label>
+              <select
+                value={editingSite.verified ? 'yes' : 'no'}
+                onChange={(e) => setEditingSite({...editingSite, verified: e.target.value === 'yes'})}
+                style={{
+                  width: '100%',
+                  padding: 10,
+                  background: '#292524',
+                  border: '1px solid #44403c',
+                  borderRadius: 6,
+                  color: '#fafaf9',
+                  fontSize: 14,
+                  boxSizing: 'border-box'
+                }}
+              >
+                <option value="yes">✓ Verified</option>
+                <option value="no">✗ Not Verified</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        
+        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+          <button
+            onClick={() => setEditingSite(null)}
+            style={{
+              flex: 1,
+              padding: 12,
+              background: '#44403c',
+              border: 'none',
+              borderRadius: 8,
+              color: '#fafaf9',
+              cursor: 'pointer'
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => updateSite(editingSite)}
+            style={{
+              flex: 1,
+              padding: 12,
+              background: '#22c55e',
+              border: 'none',
+              borderRadius: 8,
+              color: '#fff',
+              cursor: 'pointer',
+              fontWeight: 600
+            }}
+          >
+            Save Changes
+          </button>
+        </div>
+      </div>
+    </div>
   );
 
   // ============================================
@@ -3680,6 +4760,8 @@ function App() {
             50% { transform: translateY(-12px); }
           }
         `}</style>
+        
+        <LoginModal />
       </div>
     );
   }
@@ -3897,6 +4979,8 @@ function App() {
             </button>
           </div>
         </div>
+        
+        <LoginModal />
       </div>
     );
   }
@@ -3919,30 +5003,115 @@ function App() {
         <div style={{ flex: 1, display: 'flex', marginTop: 56, overflow: 'hidden' }}>
           {/* Map Area */}
           <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-            {/* Era chips */}
+            {/* Filter Panel */}
             <div style={{
               position: 'absolute',
               top: 12,
               left: 12,
-              display: 'flex',
-              gap: 8,
               zIndex: 10,
-              flexWrap: 'wrap'
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              maxWidth: 320
             }}>
-              {eras.slice(2, 7).map(era => (
-                <span
-                  key={era.id}
-                  style={{
-                    padding: '4px 12px',
-                    borderRadius: 20,
-                    fontSize: 11,
-                    fontWeight: 600,
-                    backgroundColor: era.color
-                  }}
-                >
-                  {era.name}
-                </span>
-              ))}
+              {/* Era Filter Chips */}
+              <div style={{
+                display: 'flex',
+                gap: 6,
+                flexWrap: 'wrap'
+              }}>
+                {eras.slice(2, 7).map(era => (
+                  <button
+                    key={era.id}
+                    onClick={() => toggleEraFilter(era.name)}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 20,
+                      fontSize: 11,
+                      fontWeight: 600,
+                      backgroundColor: selectedEraFilters.includes(era.name) ? era.color : 'rgba(0,0,0,0.6)',
+                      border: selectedEraFilters.includes(era.name) ? `2px solid ${era.color}` : '2px solid #44403c',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      opacity: selectedEraFilters.length === 0 || selectedEraFilters.includes(era.name) ? 1 : 0.5
+                    }}
+                  >
+                    {era.name}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Type Filter Chips */}
+              <div style={{
+                display: 'flex',
+                gap: 6,
+                flexWrap: 'wrap'
+              }}>
+                {siteTypes.map(type => {
+                  const typeColors = {
+                    'Archaeological': '#0891b2',
+                    'Fortress': '#7c3aed',
+                    'Religious': '#059669',
+                    'Urban': '#dc2626',
+                    'Museum': '#ea580c',
+                    'Natural': '#16a34a'
+                  };
+                  const color = typeColors[type] || '#6b7280';
+                  return (
+                    <button
+                      key={type}
+                      onClick={() => toggleTypeFilter(type)}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: 16,
+                        fontSize: 10,
+                        fontWeight: 600,
+                        backgroundColor: selectedTypeFilters.includes(type) ? color : 'rgba(0,0,0,0.6)',
+                        border: selectedTypeFilters.includes(type) ? `2px solid ${color}` : '2px solid #44403c',
+                        color: '#fff',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        opacity: selectedTypeFilters.length === 0 || selectedTypeFilters.includes(type) ? 1 : 0.5
+                      }}
+                    >
+                      {type}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              {/* Active Filters Summary & Clear */}
+              {(selectedEraFilters.length > 0 || selectedTypeFilters.length > 0) && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  padding: '6px 10px',
+                  background: 'rgba(0,0,0,0.7)',
+                  borderRadius: 8,
+                  fontSize: 11
+                }}>
+                  <span style={{ color: '#d6b76a' }}>
+                    Showing {visibleSites.length} sites
+                  </span>
+                  <button
+                    onClick={clearAllFilters}
+                    style={{
+                      padding: '3px 8px',
+                      background: '#dc2626',
+                      border: 'none',
+                      borderRadius: 4,
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontSize: 10,
+                      fontWeight: 600
+                    }}
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Country selector and back button */}
@@ -4388,49 +5557,160 @@ function App() {
                 {/* More Details Section */}
                 {showMoreDetails && (
                   <div style={{ marginBottom: 20 }}>
-                    <h3 style={{ fontSize: 14, color: '#d6b76a', marginBottom: 8 }}>Additional Information</h3>
+                    <h3 style={{ fontSize: 14, color: '#d6b76a', marginBottom: 12 }}>Historical Timeline</h3>
+                    
+                    {/* Visual Timeline */}
                     <div style={{
                       background: '#292524',
                       borderRadius: 10,
                       padding: 16,
-                      fontSize: 13
+                      marginBottom: 16
                     }}>
-                      <div style={{ marginBottom: 12 }}>
-                        <span style={{ color: '#78716c' }}>Historical Period:</span>
-                        <span style={{ color: '#a8a29e', marginLeft: 8 }}>
-                          {formatYear(selectedSite.startYear)} - {formatYear(selectedSite.endYear)}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <div style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          background: '#d6b76a'
+                        }} />
+                        <span style={{ color: '#fafaf9', fontSize: 13, fontWeight: 600 }}>
+                          {formatYear(selectedSite.startYear)}
                         </span>
-                      </div>
-                      <div style={{ marginBottom: 12 }}>
-                        <span style={{ color: '#78716c' }}>Eras:</span>
-                        <span style={{ color: '#a8a29e', marginLeft: 8 }}>
-                          {selectedSite.era.join(', ')}
+                        <div style={{ flex: 1, height: 2, background: 'linear-gradient(90deg, #d6b76a, #78350f)' }} />
+                        <span style={{ color: '#fafaf9', fontSize: 13, fontWeight: 600 }}>
+                          {formatYear(selectedSite.endYear)}
                         </span>
+                        <div style={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          background: '#78350f'
+                        }} />
                       </div>
-                      <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+                        {selectedSite.era.map((era, i) => (
+                          <span key={i} style={{
+                            background: getEraColor(era),
+                            color: '#fff',
+                            padding: '4px 10px',
+                            borderRadius: 12,
+                            fontSize: 11,
+                            fontWeight: 500
+                          }}>{era}</span>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {/* Site Info */}
+                    <div style={{
+                      background: '#292524',
+                      borderRadius: 10,
+                      padding: 16,
+                      fontSize: 13,
+                      marginBottom: 16
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                         <span style={{ color: '#78716c' }}>Type:</span>
-                        <span style={{ color: '#a8a29e', marginLeft: 8 }}>
-                          {selectedSite.type}
-                        </span>
+                        <span style={{ color: '#a8a29e' }}>{selectedSite.type}</span>
                       </div>
-                      <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                         <span style={{ color: '#78716c' }}>Region:</span>
-                        <span style={{ color: '#a8a29e', marginLeft: 8 }}>
-                          {selectedSite.region} - {selectedSite.county}
-                        </span>
+                        <span style={{ color: '#a8a29e' }}>{selectedSite.region} - {selectedSite.county}</span>
                       </div>
-                      <div style={{ marginBottom: 12 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                         <span style={{ color: '#78716c' }}>Coordinates:</span>
-                        <span style={{ color: '#a8a29e', marginLeft: 8 }}>
-                          {selectedSite.lat.toFixed(4)}°N, {selectedSite.lng.toFixed(4)}°E
+                        <span style={{ color: '#a8a29e' }}>{selectedSite.lat.toFixed(4)}°N, {selectedSite.lng.toFixed(4)}°E</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ color: '#78716c' }}>Status:</span>
+                        <span style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          background: selectedSite.verified ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                          color: selectedSite.verified ? '#22c55e' : '#ef4444',
+                          padding: '4px 10px',
+                          borderRadius: 12,
+                          fontSize: 12,
+                          fontWeight: 600
+                        }}>
+                          {selectedSite.verified ? '✓ Verified' : '✗ Unverified'}
                         </span>
                       </div>
-                      <div>
-                        <span style={{ color: '#78716c' }}>Verified:</span>
-                        <span style={{ color: selectedSite.verified ? '#22c55e' : '#ef4444', marginLeft: 8 }}>
-                          {selectedSite.verified ? '✓ Yes' : '✗ No'}
-                        </span>
-                      </div>
+                    </div>
+                    
+                    {/* Google Maps Link */}
+                    <a
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${selectedSite.lat},${selectedSite.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        padding: 12,
+                        background: '#1a73e8',
+                        borderRadius: 8,
+                        color: '#fff',
+                        textDecoration: 'none',
+                        fontWeight: 600,
+                        fontSize: 13,
+                        marginBottom: 16
+                      }}
+                    >
+                      <MapPinIcon size={16} /> Get Directions on Google Maps
+                    </a>
+                    
+                    {/* Nearby Sites */}
+                    <h3 style={{ fontSize: 14, color: '#d6b76a', marginBottom: 12 }}>Nearby Sites</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {getNearbySites(selectedSite, 4).map((site) => (
+                        <div
+                          key={site.id}
+                          onClick={() => setSelectedSite(site)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: 10,
+                            background: '#292524',
+                            borderRadius: 8,
+                            cursor: 'pointer',
+                            transition: 'background 0.2s'
+                          }}
+                        >
+                          <img
+                            src={site.image}
+                            alt={site.name}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: 6,
+                              objectFit: 'cover'
+                            }}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{
+                              fontSize: 13,
+                              fontWeight: 500,
+                              color: '#fafaf9',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>{site.name}</div>
+                            <div style={{ fontSize: 11, color: '#78716c' }}>{site.type}</div>
+                          </div>
+                          <div style={{
+                            fontSize: 12,
+                            color: '#d6b76a',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {site.distance.toFixed(1)} km
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -4455,6 +5735,29 @@ function App() {
                   }}
                 >
                   {showMoreDetails ? '▲ Show Less' : '▼ Show More Details'}
+                </button>
+                
+                {/* View Full Details Button */}
+                <button
+                  onClick={() => goToDetail(selectedSite.id)}
+                  style={{
+                    width: '100%',
+                    padding: 12,
+                    background: 'linear-gradient(135deg, #78350f, #b45309)',
+                    border: 'none',
+                    borderRadius: 8,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    marginBottom: 16,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                >
+                  📖 View Full Details →
                 </button>
                 
                 {/* Admin Edit Button */}
@@ -4540,6 +5843,645 @@ function App() {
             to { transform: translateX(0); }
           }
         `}</style>
+        
+        <LoginModal />
+        <EditSiteModal />
+      </div>
+    );
+  }
+
+  // ============================================
+  // SITE DETAIL PAGE
+  // ============================================
+  if (page === 'detail' && detailSiteId) {
+    const site = sitesList.find(s => s.id === detailSiteId);
+    if (!site) {
+      setPage('explore');
+      return null;
+    }
+    const nearbySites = getNearbySites(site, 6);
+    
+    return (
+      <div style={{
+        minHeight: '100vh',
+        background: '#0c0a09',
+        color: '#fafaf9',
+        fontFamily: "-apple-system, sans-serif"
+      }}>
+        {/* Hero Image */}
+        <div style={{
+          position: 'relative',
+          height: 400,
+          background: `linear-gradient(to bottom, rgba(12,10,9,0) 0%, rgba(12,10,9,0.8) 70%, rgba(12,10,9,1) 100%), url(${site.image}) center/cover`
+        }}>
+          {/* Back Button */}
+          <button
+            onClick={() => {
+              setPage('map');
+              setSelectedSite(site);
+            }}
+            style={{
+              position: 'absolute',
+              top: 24,
+              left: 24,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '10px 16px',
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(10px)',
+              border: 'none',
+              borderRadius: 8,
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: 14,
+              fontWeight: 500
+            }}
+          >
+            ← Back to Map
+          </button>
+          
+          {/* Share Button */}
+          <button
+            onClick={() => navigator.clipboard.writeText(window.location.href)}
+            style={{
+              position: 'absolute',
+              top: 24,
+              right: 24,
+              padding: '10px 16px',
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(10px)',
+              border: 'none',
+              borderRadius: 8,
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: 14
+            }}
+          >
+            <ShareIcon /> Share
+          </button>
+          
+          {/* Type Badge */}
+          <div style={{
+            position: 'absolute',
+            bottom: 100,
+            left: 24,
+            padding: '6px 14px',
+            background: site.type === 'Archaeological' ? '#0891b2' : 
+                        site.type === 'Fortress' ? '#7c3aed' : 
+                        site.type === 'Religious' ? '#059669' : 
+                        site.type === 'Natural' ? '#16a34a' : '#b45309',
+            borderRadius: 20,
+            fontSize: 12,
+            fontWeight: 600
+          }}>
+            {site.type}
+          </div>
+          
+          {/* Title */}
+          <div style={{
+            position: 'absolute',
+            bottom: 24,
+            left: 24,
+            right: 24
+          }}>
+            <h1 style={{
+              fontFamily: 'Cinzel, Georgia, serif',
+              fontSize: '2.5rem',
+              fontWeight: 700,
+              marginBottom: 8,
+              textShadow: '0 2px 10px rgba(0,0,0,0.5)'
+            }}>
+              {site.name}
+            </h1>
+            {site.alternateName && (
+              <p style={{ color: '#a8a29e', fontSize: 16, fontStyle: 'italic' }}>
+                {site.alternateName}
+              </p>
+            )}
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div style={{
+          maxWidth: 1200,
+          margin: '0 auto',
+          padding: '40px 24px',
+          display: 'grid',
+          gridTemplateColumns: '1fr 380px',
+          gap: 40
+        }}>
+          {/* Main Content */}
+          <div>
+            {/* Era Tags & Rating */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {site.era.map((era, i) => (
+                  <span key={i} style={{
+                    background: getEraColor(era),
+                    color: '#fff',
+                    padding: '5px 12px',
+                    borderRadius: 16,
+                    fontSize: 12,
+                    fontWeight: 500
+                  }}>{era}</span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#d6b76a' }}>
+                <StarIcon /> {site.rating} <span style={{ color: '#78716c' }}>({site.reviews} reviews)</span>
+              </div>
+              {site.verified && (
+                <span style={{
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  color: '#22c55e',
+                  padding: '5px 12px',
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 600
+                }}>✓ Verified</span>
+              )}
+            </div>
+            
+            {/* Historical Timeline */}
+            <div style={{
+              background: '#1c1917',
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 24
+            }}>
+              <h2 style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 18,
+                color: '#d6b76a',
+                marginBottom: 16
+              }}>Historical Timeline</h2>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  textAlign: 'center',
+                  padding: '12px 20px',
+                  background: '#292524',
+                  borderRadius: 12
+                }}>
+                  <div style={{ fontSize: 11, color: '#78716c', marginBottom: 4 }}>FOUNDED</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#d6b76a' }}>{formatYear(site.startYear)}</div>
+                </div>
+                <div style={{ flex: 1, height: 4, background: 'linear-gradient(90deg, #d6b76a, #78350f)', borderRadius: 2 }} />
+                <div style={{
+                  textAlign: 'center',
+                  padding: '12px 20px',
+                  background: '#292524',
+                  borderRadius: 12
+                }}>
+                  <div style={{ fontSize: 11, color: '#78716c', marginBottom: 4 }}>{site.endYear === 2024 || site.endYear === 2025 ? 'PRESENT' : 'ENDED'}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#78350f' }}>{formatYear(site.endYear)}</div>
+                </div>
+              </div>
+            </div>
+            
+            {/* About */}
+            <div style={{
+              background: '#1c1917',
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 24
+            }}>
+              <h2 style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 18,
+                color: '#d6b76a',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10
+              }}>
+                <BookOpenIcon /> About This Site
+              </h2>
+              <p style={{
+                color: '#d6d3d1',
+                lineHeight: 1.9,
+                fontSize: 15,
+                marginBottom: 16
+              }}>
+                {site.description}
+              </p>
+              
+              {/* Extended Story/History */}
+              <div style={{
+                borderTop: '1px solid #292524',
+                paddingTop: 20,
+                marginTop: 8
+              }}>
+                <h3 style={{
+                  fontSize: 15,
+                  color: '#fafaf9',
+                  fontWeight: 600,
+                  marginBottom: 12
+                }}>Historical Significance</h3>
+                <p style={{
+                  color: '#a8a29e',
+                  lineHeight: 1.8,
+                  fontSize: 14,
+                  whiteSpace: 'pre-line'
+                }}>
+                  {site.extendedDescription || `${site.name} stands as a testament to the rich heritage of ${site.region}. 
+                  Dating back to ${formatYear(site.startYear)}, this ${site.type.toLowerCase()} site 
+                  has witnessed centuries of history, cultural evolution, and architectural development. 
+                  Located in ${site.county}, it represents one of the most significant ${site.type.toLowerCase()} 
+                  monuments in the region, attracting visitors who seek to understand the deep historical 
+                  roots of Albanian and Kosovar civilization.`}
+                </p>
+              </div>
+            </div>
+            
+            {/* Travel Tips */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1c1917 0%, #292524 100%)',
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 24,
+              border: '1px solid #3a3533'
+            }}>
+              <h2 style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 18,
+                color: '#d6b76a',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10
+              }}>
+                💡 Visitor Tips
+              </h2>
+              <div style={{
+                display: 'grid',
+                gap: 16
+              }}>
+                <div style={{
+                  display: 'flex',
+                  gap: 12,
+                  padding: 16,
+                  background: 'rgba(214, 183, 106, 0.1)',
+                  borderRadius: 12,
+                  border: '1px solid rgba(214, 183, 106, 0.2)'
+                }}>
+                  <div style={{ fontSize: 24 }}>🕐</div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#fafaf9', marginBottom: 4 }}>Best Time to Visit</div>
+                    <div style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6 }}>
+                      {site.bestTimeToVisit || 'Visit early morning or late afternoon to avoid crowds and enjoy the best lighting for photos. Spring and autumn offer the most pleasant weather conditions.'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  gap: 12,
+                  padding: 16,
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  borderRadius: 12,
+                  border: '1px solid rgba(34, 197, 94, 0.2)'
+                }}>
+                  <div style={{ fontSize: 24 }}>👟</div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#fafaf9', marginBottom: 4 }}>What to Wear</div>
+                    <div style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6 }}>
+                      {site.whatToWear || `Comfortable walking shoes are essential as the terrain can be uneven.${site.type === 'Religious' ? ' Modest clothing is required for religious sites - cover shoulders and knees.' : ''}${site.type === 'Fortress' ? ' Bring a hat and sunscreen as fortress walls offer little shade.' : ''}`}
+                    </div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  gap: 12,
+                  padding: 16,
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  borderRadius: 12,
+                  border: '1px solid rgba(59, 130, 246, 0.2)'
+                }}>
+                  <div style={{ fontSize: 24 }}>📷</div>
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#fafaf9', marginBottom: 4 }}>Photo Spots</div>
+                    <div style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6 }}>
+                      {site.photoTips || "Don't miss the panoramic views from elevated positions. The golden hour provides stunning lighting for photographing the ancient architecture and surrounding landscape."}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Did You Know? */}
+            <div style={{
+              background: '#78350f',
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 24
+            }}>
+              <h2 style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 18,
+                color: '#fafaf9',
+                marginBottom: 16,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10
+              }}>
+                🎓 Did You Know?
+              </h2>
+              <ul style={{
+                color: '#fef3c7',
+                lineHeight: 1.8,
+                fontSize: 14,
+                margin: 0,
+                paddingLeft: 20
+              }}>
+                {site.funFacts && site.funFacts.length > 0 ? (
+                  site.funFacts.map((fact, i) => (
+                    <li key={i} style={{ marginBottom: 12 }}>{fact}</li>
+                  ))
+                ) : (
+                  <>
+                    <li style={{ marginBottom: 12 }}>
+                      {site.name} has been standing for approximately {Math.abs(new Date().getFullYear() - site.startYear)} years, 
+                      witnessing countless historical events.
+                    </li>
+                    <li style={{ marginBottom: 12 }}>
+                      This site is one of {sitesList.filter(s => s.type === site.type).length} {site.type.toLowerCase()} sites 
+                      documented in our heritage collection.
+                    </li>
+                    <li>
+                      {site.region === 'Albania' ? 
+                        'Albania has over 3,000 recorded archaeological and historical sites, making it one of the richest heritage destinations in the Balkans.' :
+                        'Kosovo features a unique blend of Ottoman, Byzantine, and medieval Serbian architectural influences.'}
+                    </li>
+                  </>
+                )}
+              </ul>
+            </div>
+            
+            {/* Highlights */}
+            <div style={{
+              background: '#1c1917',
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 24
+            }}>
+              <h2 style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 18,
+                color: '#d6b76a',
+                marginBottom: 16
+              }}>Highlights</h2>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12
+              }}>
+                {site.highlights.map((h, i) => (
+                  <div key={i} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: 12,
+                    background: '#292524',
+                    borderRadius: 10,
+                    color: '#a8a29e'
+                  }}>
+                    <div style={{
+                      width: 28,
+                      height: 28,
+                      background: '#78350f',
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: '#fff',
+                      fontSize: 14
+                    }}>✓</div>
+                    {h}
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Nearby Sites */}
+            <div style={{
+              background: '#1c1917',
+              borderRadius: 16,
+              padding: 24
+            }}>
+              <h2 style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 18,
+                color: '#d6b76a',
+                marginBottom: 16
+              }}>Nearby Heritage Sites</h2>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12
+              }}>
+                {nearbySites.map((nearby) => (
+                  <div
+                    key={nearby.id}
+                    onClick={() => {
+                      setDetailSiteId(nearby.id);
+                      window.scrollTo(0, 0);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: 12,
+                      background: '#292524',
+                      borderRadius: 10,
+                      cursor: 'pointer',
+                      transition: 'transform 0.2s'
+                    }}
+                  >
+                    <img
+                      src={nearby.image}
+                      alt={nearby.name}
+                      style={{
+                        width: 60,
+                        height: 60,
+                        borderRadius: 8,
+                        objectFit: 'cover'
+                      }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: '#fafaf9',
+                        marginBottom: 4,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>{nearby.name}</div>
+                      <div style={{ fontSize: 12, color: '#78716c' }}>{nearby.type}</div>
+                      <div style={{ fontSize: 12, color: '#d6b76a', fontWeight: 600 }}>
+                        {nearby.distance.toFixed(1)} km away
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          
+          {/* Sidebar */}
+          <div>
+            {/* Visit Info Card */}
+            <div style={{
+              background: '#1c1917',
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 20,
+              position: 'sticky',
+              top: 20
+            }}>
+              <h3 style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 16,
+                color: '#d6b76a',
+                marginBottom: 16
+              }}>Visit Information</h3>
+              
+              <div style={{ marginBottom: 20 }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 0',
+                  borderBottom: '1px solid #292524'
+                }}>
+                  <ClockIcon />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>OPENING HOURS</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.visitInfo.hours}</div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 0',
+                  borderBottom: '1px solid #292524'
+                }}>
+                  <MapPinIcon size={18} />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>LOCATION</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.county}, {site.region}</div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 0',
+                  borderBottom: '1px solid #292524'
+                }}>
+                  <TicketIcon />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>ENTRY FEE</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.visitInfo.entry}</div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 0'
+                }}>
+                  <CalendarIcon />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>SUGGESTED DURATION</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.visitInfo.duration}</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Coordinates */}
+              <div style={{
+                background: '#292524',
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 16,
+                fontSize: 13
+              }}>
+                <div style={{ color: '#78716c', marginBottom: 4 }}>GPS Coordinates</div>
+                <div style={{ color: '#fafaf9', fontFamily: 'monospace' }}>
+                  {site.lat.toFixed(5)}°N, {site.lng.toFixed(5)}°E
+                </div>
+              </div>
+              
+              {/* Action Buttons */}
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: 14,
+                  background: '#1a73e8',
+                  borderRadius: 10,
+                  color: '#fff',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  marginBottom: 10
+                }}
+              >
+                <MapPinIcon size={18} /> Get Directions
+              </a>
+              
+              <button
+                onClick={() => addToRoute(site)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: 14,
+                  background: customRoute.find(s => s.id === site.id) ? '#22c55e' : '#b45309',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: 'pointer'
+                }}
+              >
+                {customRoute.find(s => s.id === site.id) ? '✓ Added to Route' : '+ Add to My Route'}
+              </button>
+              
+              {/* Admin Edit */}
+              {isLoggedIn && (
+                <button
+                  onClick={() => setEditingSite({...site})}
+                  style={{
+                    width: '100%',
+                    marginTop: 10,
+                    padding: 12,
+                    background: '#44403c',
+                    border: 'none',
+                    borderRadius: 10,
+                    color: '#fafaf9',
+                    cursor: 'pointer',
+                    fontSize: 13
+                  }}
+                >
+                  ✏️ Edit This Listing
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        <LoginModal />
+        <EditSiteModal />
       </div>
     );
   }
@@ -4645,6 +6587,8 @@ function App() {
             ))}
           </div>
         </div>
+        
+        <LoginModal />
       </div>
     );
   }
@@ -4835,6 +6779,8 @@ function App() {
             </>
           )}
         </div>
+        
+        <LoginModal />
       </div>
     );
   }
@@ -5001,114 +6947,37 @@ function App() {
             ))}
           </div>
         </div>
+        
+        <LoginModal />
       </div>
     );
   }
 
   // ============================================
-  // LOGIN MODAL
+  // ADMIN PANEL PAGE
   // ============================================
-  const LoginModal = () => showLoginModal && (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 2000
-    }}>
-      <div style={{
-        background: '#1c1917',
-        borderRadius: 16,
-        padding: 32,
-        width: 400,
-        maxWidth: '90%'
-      }}>
-        <h2 style={{
-          fontFamily: 'Cinzel, Georgia, serif',
-          fontSize: '1.5rem',
-          marginBottom: 8
+  if (page === 'admin') {
+    // Redirect if not logged in
+    if (!isLoggedIn) {
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(180deg, #1c1917, #0c0a09)',
+          color: '#fafaf9',
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 24
         }}>
-          Admin Login
-        </h2>
-        <p style={{ color: '#78716c', marginBottom: 24, fontSize: 14 }}>
-          Sign in to edit heritage site listings
-        </p>
-        
-        {loginError && (
-          <div style={{
-            background: '#991b1b',
-            color: '#fecaca',
-            padding: '8px 12px',
-            borderRadius: 6,
-            marginBottom: 16,
-            fontSize: 13
-          }}>
-            {loginError}
-          </div>
-        )}
-        
-        <input
-          type="email"
-          placeholder="Email"
-          value={loginEmail}
-          onChange={(e) => setLoginEmail(e.target.value)}
-          style={{
-            width: '100%',
-            padding: 12,
-            background: '#292524',
-            border: '1px solid #44403c',
-            borderRadius: 8,
-            color: '#fafaf9',
-            marginBottom: 12,
-            fontSize: 14,
-            boxSizing: 'border-box'
-          }}
-        />
-        
-        <input
-          type="password"
-          placeholder="Password"
-          value={loginPassword}
-          onChange={(e) => setLoginPassword(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-          style={{
-            width: '100%',
-            padding: 12,
-            background: '#292524',
-            border: '1px solid #44403c',
-            borderRadius: 8,
-            color: '#fafaf9',
-            marginBottom: 24,
-            fontSize: 14,
-            boxSizing: 'border-box'
-          }}
-        />
-        
-        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ fontSize: 48 }}>🔒</div>
+          <h1 style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: '1.5rem' }}>Admin Access Required</h1>
+          <p style={{ color: '#78716c' }}>Please log in to access the admin panel</p>
           <button
-            onClick={() => {
-              setShowLoginModal(false);
-              setLoginError('');
-            }}
+            onClick={() => setShowLoginModal(true)}
             style={{
-              flex: 1,
-              padding: 12,
-              background: '#44403c',
-              border: 'none',
-              borderRadius: 8,
-              color: '#fafaf9',
-              cursor: 'pointer'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleLogin}
-            style={{
-              flex: 1,
-              padding: 12,
+              padding: '12px 24px',
               background: '#b45309',
               border: 'none',
               borderRadius: 8,
@@ -5117,269 +6986,391 @@ function App() {
               fontWeight: 600
             }}
           >
-            Sign In
+            Login
           </button>
+          <LoginModal />
         </div>
-        
-        <p style={{
-          textAlign: 'center',
-          color: '#78716c',
-          fontSize: 12,
-          marginTop: 16
-        }}>
-          Demo: admin@heritage.com / admin123
-        </p>
-      </div>
-    </div>
-  );
+      );
+    }
 
-  // ============================================
-  // EDIT SITE MODAL
-  // ============================================
-  const EditSiteModal = () => editingSite && (
-    <div style={{
-      position: 'fixed',
-      inset: 0,
-      background: 'rgba(0,0,0,0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 2000,
-      overflow: 'auto',
-      padding: 20
-    }}>
+    const filteredAdminSites = sitesList.filter(site => {
+      const matchesSearch = site.name.toLowerCase().includes(adminSearch.toLowerCase()) ||
+                           site.county.toLowerCase().includes(adminSearch.toLowerCase());
+      const matchesFilter = adminFilter === 'all' || site.type === adminFilter;
+      return matchesSearch && matchesFilter;
+    });
+
+    const siteTypes = [...new Set(sitesList.map(s => s.type))];
+    const stats = {
+      total: sitesList.length,
+      verified: sitesList.filter(s => s.verified).length,
+      albania: sitesList.filter(s => s.region === 'Albania').length,
+      kosovo: sitesList.filter(s => s.region === 'Kosovo').length
+    };
+
+    return (
       <div style={{
-        background: '#1c1917',
-        borderRadius: 16,
-        padding: 32,
-        width: 600,
-        maxWidth: '90%',
-        maxHeight: '90vh',
-        overflow: 'auto'
+        minHeight: '100vh',
+        background: 'linear-gradient(180deg, #1c1917, #0c0a09)',
+        color: '#fafaf9',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
       }}>
-        <h2 style={{
-          fontFamily: 'Cinzel, Georgia, serif',
-          fontSize: '1.5rem',
-          marginBottom: 24
-        }}>
-          Edit: {editingSite.name}
-        </h2>
-        
-        <div style={{ display: 'grid', gap: 16 }}>
-          <div>
-            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Name</label>
-            <input
-              type="text"
-              value={editingSite.name}
-              onChange={(e) => setEditingSite({...editingSite, name: e.target.value})}
-              style={{
-                width: '100%',
-                padding: 10,
-                background: '#292524',
-                border: '1px solid #44403c',
-                borderRadius: 6,
-                color: '#fafaf9',
-                fontSize: 14,
-                boxSizing: 'border-box'
-              }}
-            />
+        <Header />
+
+        <div style={{ padding: '80px 24px 40px', maxWidth: 1400, margin: '0 auto' }}>
+          {/* Admin Header */}
+          <div style={{ marginBottom: 32 }}>
+            <h1 style={{
+              fontFamily: 'Cinzel, Georgia, serif',
+              fontSize: 'clamp(1.5rem, 4vw, 2rem)',
+              marginBottom: 8
+            }}>
+              🛡️ Admin Panel
+            </h1>
+            <p style={{ color: '#78716c' }}>
+              Manage heritage site listings • Logged in as <span style={{ color: '#d6b76a' }}>{loginEmail}</span>
+            </p>
           </div>
-          
-          <div>
-            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Alternate Name</label>
-            <input
-              type="text"
-              value={editingSite.alternateName}
-              onChange={(e) => setEditingSite({...editingSite, alternateName: e.target.value})}
-              style={{
-                width: '100%',
-                padding: 10,
-                background: '#292524',
-                border: '1px solid #44403c',
-                borderRadius: 6,
-                color: '#fafaf9',
-                fontSize: 14,
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-          
-          <div>
-            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Description</label>
-            <textarea
-              value={editingSite.description}
-              onChange={(e) => setEditingSite({...editingSite, description: e.target.value})}
-              rows={4}
-              style={{
-                width: '100%',
-                padding: 10,
-                background: '#292524',
-                border: '1px solid #44403c',
-                borderRadius: 6,
-                color: '#fafaf9',
-                fontSize: 14,
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>County</label>
-              <input
-                type="text"
-                value={editingSite.county}
-                onChange={(e) => setEditingSite({...editingSite, county: e.target.value})}
-                style={{
-                  width: '100%',
-                  padding: 10,
-                  background: '#292524',
-                  border: '1px solid #44403c',
-                  borderRadius: 6,
-                  color: '#fafaf9',
-                  fontSize: 14,
-                  boxSizing: 'border-box'
-                }}
-              />
+
+          {/* Stats Cards */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            gap: 16,
+            marginBottom: 32
+          }}>
+            <div style={{
+              background: '#292524',
+              borderRadius: 12,
+              padding: 20,
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#d6b76a' }}>{stats.total}</div>
+              <div style={{ color: '#78716c', fontSize: 13 }}>Total Sites</div>
             </div>
-            <div>
-              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Type</label>
-              <select
-                value={editingSite.type}
-                onChange={(e) => setEditingSite({...editingSite, type: e.target.value})}
+            <div style={{
+              background: '#292524',
+              borderRadius: 12,
+              padding: 20,
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#22c55e' }}>{stats.verified}</div>
+              <div style={{ color: '#78716c', fontSize: 13 }}>Verified</div>
+            </div>
+            <div style={{
+              background: '#292524',
+              borderRadius: 12,
+              padding: 20,
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#ef4444' }}>{stats.albania}</div>
+              <div style={{ color: '#78716c', fontSize: 13 }}>Albania</div>
+            </div>
+            <div style={{
+              background: '#292524',
+              borderRadius: 12,
+              padding: 20,
+              textAlign: 'center'
+            }}>
+              <div style={{ fontSize: 32, fontWeight: 700, color: '#3b82f6' }}>{stats.kosovo}</div>
+              <div style={{ color: '#78716c', fontSize: 13 }}>Kosovo</div>
+            </div>
+          </div>
+
+          {/* Search and Filter */}
+          <div style={{
+            display: 'flex',
+            gap: 12,
+            marginBottom: 24,
+            flexWrap: 'wrap'
+          }}>
+            <input
+              type="text"
+              placeholder="Search sites..."
+              value={adminSearch}
+              onChange={(e) => setAdminSearch(e.target.value)}
+              style={{
+                flex: 1,
+                minWidth: 200,
+                padding: 12,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 8,
+                color: '#fafaf9',
+                fontSize: 14
+              }}
+            />
+            <select
+              value={adminFilter}
+              onChange={(e) => setAdminFilter(e.target.value)}
+              style={{
+                padding: 12,
+                background: '#292524',
+                border: '1px solid #44403c',
+                borderRadius: 8,
+                color: '#fafaf9',
+                fontSize: 14
+              }}
+            >
+              <option value="all">All Types</option>
+              {siteTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Sites Table */}
+          <div style={{
+            background: '#292524',
+            borderRadius: 12,
+            overflow: 'hidden'
+          }}>
+            {/* Table Header */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '60px 1fr 120px 100px 80px 100px',
+              gap: 12,
+              padding: '12px 16px',
+              background: '#1c1917',
+              fontWeight: 600,
+              fontSize: 13,
+              color: '#a8a29e',
+              borderBottom: '1px solid #44403c'
+            }}>
+              <div>Image</div>
+              <div>Name</div>
+              <div>Type</div>
+              <div>Region</div>
+              <div>Status</div>
+              <div>Actions</div>
+            </div>
+
+            {/* Table Body */}
+            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+              {filteredAdminSites.map(site => (
+                <div
+                  key={site.id}
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '60px 1fr 120px 100px 80px 100px',
+                    gap: 12,
+                    padding: '12px 16px',
+                    alignItems: 'center',
+                    borderBottom: '1px solid #3a3533',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#3a3533'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <img
+                    src={site.image}
+                    alt={site.name}
+                    style={{
+                      width: 50,
+                      height: 35,
+                      objectFit: 'cover',
+                      borderRadius: 4
+                    }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 500, marginBottom: 2 }}>{site.name}</div>
+                    <div style={{ fontSize: 12, color: '#78716c' }}>{site.county}</div>
+                  </div>
+                  <div style={{
+                    fontSize: 12,
+                    padding: '4px 8px',
+                    background: '#44403c',
+                    borderRadius: 4,
+                    textAlign: 'center'
+                  }}>
+                    {site.type}
+                  </div>
+                  <div style={{ fontSize: 13 }}>{site.region}</div>
+                  <div>
+                    {site.verified ? (
+                      <span style={{ color: '#22c55e', fontSize: 12 }}>✓ Verified</span>
+                    ) : (
+                      <span style={{ color: '#ef4444', fontSize: 12 }}>✗ Unverified</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      onClick={() => setEditingSite({...site})}
+                      style={{
+                        padding: '6px 12px',
+                        background: '#b45309',
+                        border: 'none',
+                        borderRadius: 4,
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontSize: 12
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => goToDetail(site.id)}
+                      style={{
+                        padding: '6px 12px',
+                        background: '#44403c',
+                        border: 'none',
+                        borderRadius: 4,
+                        color: '#fff',
+                        cursor: 'pointer',
+                        fontSize: 12
+                      }}
+                    >
+                      View
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {filteredAdminSites.length === 0 && (
+              <div style={{
+                padding: 40,
+                textAlign: 'center',
+                color: '#78716c'
+              }}>
+                No sites found matching your criteria
+              </div>
+            )}
+          </div>
+
+          {/* Footer Info */}
+          <div style={{
+            marginTop: 24,
+            padding: 16,
+            background: '#292524',
+            borderRadius: 8,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: 12
+          }}>
+            <div style={{ color: '#78716c', fontSize: 13 }}>
+              Showing {filteredAdminSites.length} of {sitesList.length} sites • 
+              <span style={{ color: '#22c55e', marginLeft: 4 }}>Changes auto-saved</span>
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => {
+                  // Open EditSiteModal in 'add' mode with empty fields
+                  setEditingSite({
+                    id: `site_${Date.now()}`,
+                    name: '',
+                    alternateName: '',
+                    type: '',
+                    lat: '',
+                    lng: '',
+                    region: '',
+                    county: '',
+                    era: [],
+                    startYear: '',
+                    endYear: '',
+                    description: '',
+                    extendedDescription: '',
+                    highlights: [],
+                    image: '',
+                    rating: 4.5,
+                    reviews: 0,
+                    verified: false,
+                    visitInfo: {},
+                    bestTimeToVisit: '',
+                    whatToWear: '',
+                    photoTips: '',
+                    funFacts: []
+                  });
+                }}
                 style={{
-                  width: '100%',
-                  padding: 10,
-                  background: '#292524',
-                  border: '1px solid #44403c',
+                  padding: '8px 16px',
+                  background: '#d6b76a',
+                  border: 'none',
                   borderRadius: 6,
-                  color: '#fafaf9',
-                  fontSize: 14,
-                  boxSizing: 'border-box'
+                  color: '#222',
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  fontWeight: 600
                 }}
               >
-                <option value="Archaeological">Archaeological</option>
-                <option value="Fortress">Fortress</option>
-                <option value="Religious">Religious</option>
-                <option value="Urban">Urban</option>
-                <option value="Museum">Museum</option>
-                <option value="Natural">Natural</option>
-              </select>
-            </div>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Entry Fee</label>
-              <input
-                type="text"
-                value={editingSite.visitInfo.entry}
-                onChange={(e) => setEditingSite({
-                  ...editingSite, 
-                  visitInfo: {...editingSite.visitInfo, entry: e.target.value}
-                })}
+                ➕ Add New Place
+              </button>
+              <button
+                onClick={async () => {
+                  if (window.confirm('Upload all current sites to Supabase database?')) {
+                    console.log('📤 Uploading all sites to Supabase...');
+                    const result = await saveAllSitesToDB(sitesList);
+                    if (result.success) {
+                      alert(`✅ Successfully saved ${sitesList.length} sites to database!`);
+                    } else {
+                      alert('❌ Failed to save: ' + (result.error?.message || 'Unknown error'));
+                    }
+                  }
+                }}
                 style={{
-                  width: '100%',
-                  padding: 10,
-                  background: '#292524',
-                  border: '1px solid #44403c',
+                  padding: '8px 16px',
+                  background: '#059669',
+                  border: 'none',
+                  borderRadius: 6,
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 13
+                }}
+              >
+                💾 Save All to Database
+              </button>
+              <button
+                onClick={() => {
+                  if (window.confirm('Reset all sites to original data? This will erase all your edits.')) {
+                    setSitesList(heritageSites);
+                    setAvailableImages(defaultImages);
+                    localStorage.removeItem('heritageSites');
+                    localStorage.removeItem('heritageImages');
+                  }
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: '#44403c',
+                  border: 'none',
                   borderRadius: 6,
                   color: '#fafaf9',
-                  fontSize: 14,
-                  boxSizing: 'border-box'
+                  cursor: 'pointer',
+                  fontSize: 13
                 }}
-              />
-            </div>
-            <div>
-              <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>Hours</label>
-              <input
-                type="text"
-                value={editingSite.visitInfo.hours}
-                onChange={(e) => setEditingSite({
-                  ...editingSite, 
-                  visitInfo: {...editingSite.visitInfo, hours: e.target.value}
-                })}
+              >
+                Reset to Defaults
+              </button>
+              <button
+                onClick={() => {
+                  setIsLoggedIn(false);
+                  setPage('home');
+                }}
                 style={{
-                  width: '100%',
-                  padding: 10,
-                  background: '#292524',
-                  border: '1px solid #44403c',
+                  padding: '8px 16px',
+                  background: '#dc2626',
+                  border: 'none',
                   borderRadius: 6,
-                  color: '#fafaf9',
-                  fontSize: 14,
-                  boxSizing: 'border-box'
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: 13
                 }}
-              />
+              >
+                Logout
+              </button>
             </div>
           </div>
-          
-          <div>
-            <label style={{ color: '#78716c', fontSize: 12, marginBottom: 4, display: 'block' }}>
-              Highlights (comma separated)
-            </label>
-            <input
-              type="text"
-              value={editingSite.highlights.join(', ')}
-              onChange={(e) => setEditingSite({
-                ...editingSite, 
-                highlights: e.target.value.split(',').map(h => h.trim())
-              })}
-              style={{
-                width: '100%',
-                padding: 10,
-                background: '#292524',
-                border: '1px solid #44403c',
-                borderRadius: 6,
-                color: '#fafaf9',
-                fontSize: 14,
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
         </div>
-        
-        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-          <button
-            onClick={() => setEditingSite(null)}
-            style={{
-              flex: 1,
-              padding: 12,
-              background: '#44403c',
-              border: 'none',
-              borderRadius: 8,
-              color: '#fafaf9',
-              cursor: 'pointer'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => updateSite(editingSite)}
-            style={{
-              flex: 1,
-              padding: 12,
-              background: '#22c55e',
-              border: 'none',
-              borderRadius: 8,
-              color: '#fff',
-              cursor: 'pointer',
-              fontWeight: 600
-            }}
-          >
-            Save Changes
-          </button>
-        </div>
-      </div>
-    </div>
-  );
 
-  return (
-    <>
-      <LoginModal />
-      <EditSiteModal />
-    </>
-  );
+        <LoginModal />
+        <EditSiteModal />
+      </div>
+    );
+  }
+
+  // Default return - should not normally reach here
+  return null;
 }
 
 export default App;
