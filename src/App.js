@@ -5273,7 +5273,7 @@ function App() {
           }}>
             {/* Albania Card */}
             <div
-              onClick={() => { setSelectedCountry('Albania'); setPage('map'); }}
+              onClick={() => { setSelectedCountry('Albania'); setSelectedSite(null); setPage('map'); }}
               style={{
                 width: 340,
                 background: '#1c1917',
@@ -5353,7 +5353,7 @@ function App() {
 
             {/* Kosovo Card */}
             <div
-              onClick={() => { setSelectedCountry('Kosovo'); setPage('map'); }}
+              onClick={() => { setSelectedCountry('Kosovo'); setSelectedSite(null); setPage('map'); }}
               style={{
                 width: 340,
                 background: '#1c1917',
@@ -5432,7 +5432,7 @@ function App() {
           {/* Or explore both */}
           <div style={{ marginTop: 48 }}>
             <button
-              onClick={() => { setSelectedCountry(null); setPage('map'); }}
+              onClick={() => { setSelectedCountry(null); setSelectedSite(null); setPage('map'); }}
               style={{
                 padding: '12px 24px',
                 background: 'transparent',
