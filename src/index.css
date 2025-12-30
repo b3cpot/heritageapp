@@ -214,6 +214,21 @@ select:focus-visible {
    Google Maps-style behavior
    ============================================ */
 
+/* Map page - prevent scrolling on mobile */
+.map-page {
+  overflow: hidden !important;
+  touch-action: none;
+}
+
+.map-page .mapboxgl-map {
+  touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* Allow touch on the bottom sheet */
+.site-detail-panel {
+  touch-action: pan-y;
+}
+
 @keyframes slideUpSheet {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
@@ -272,26 +287,30 @@ select:focus-visible {
     display: flex !important;
     justify-content: center;
     align-items: center;
-    padding: 14px 0 10px;
+    padding: 16px 0 12px;
     cursor: grab;
-    touch-action: pan-y;
+    touch-action: none;
     position: sticky;
     top: 0;
     background: #1c1917;
     z-index: 10;
     border-radius: 20px 20px 0 0;
+    min-height: 44px;
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .sheet-drag-handle::before {
     content: '';
-    width: 36px;
+    width: 40px;
     height: 5px;
-    background: #57534e;
+    background: #78716c;
     border-radius: 3px;
   }
 
   .sheet-drag-handle:active::before {
-    background: #78716c;
+    background: #a8a29e;
+    width: 50px;
   }
 
   /* Reduce image height on mobile for better UX */

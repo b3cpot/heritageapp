@@ -3618,6 +3618,8 @@ function App() {
   const [selectedSite, setSelectedSite] = useState(null);
   const [mobileSheetHeight, setMobileSheetHeight] = useState('peek'); // 'peek', 'half', 'full'
   const touchStartY = useRef(0);
+  const touchCurrentY = useRef(0);
+  const isDragging = useRef(false);
   const sheetRef = useRef(null);
 
   // Handle site selection with toggle behavior (like Google Maps)
@@ -3633,23 +3635,39 @@ function App() {
     }
   };
 
-  // Mobile sheet touch handlers
+  // Mobile sheet touch handlers - improved for smoother swipe
   const handleTouchStart = (e) => {
     touchStartY.current = e.touches[0].clientY;
+    touchCurrentY.current = e.touches[0].clientY;
+    isDragging.current = true;
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging.current) return;
+    touchCurrentY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = (e) => {
-    const deltaY = touchStartY.current - e.changedTouches[0].clientY;
+    if (!isDragging.current) return;
+    isDragging.current = false;
     
-    if (deltaY > 50) {
-      // Swipe up
-      if (mobileSheetHeight === 'peek') setMobileSheetHeight('half');
-      else if (mobileSheetHeight === 'half') setMobileSheetHeight('full');
-    } else if (deltaY < -50) {
-      // Swipe down
-      if (mobileSheetHeight === 'full') setMobileSheetHeight('half');
-      else if (mobileSheetHeight === 'half') setMobileSheetHeight('peek');
-      else if (mobileSheetHeight === 'peek') {
+    const deltaY = touchStartY.current - touchCurrentY.current;
+    const threshold = 20; // Very low threshold for responsive feel
+    
+    if (deltaY > threshold) {
+      // Swipe up - expand
+      if (mobileSheetHeight === 'peek') {
+        setMobileSheetHeight('half');
+      } else if (mobileSheetHeight === 'half') {
+        setMobileSheetHeight('full');
+      }
+    } else if (deltaY < -threshold) {
+      // Swipe down - collapse
+      if (mobileSheetHeight === 'full') {
+        setMobileSheetHeight('half');
+      } else if (mobileSheetHeight === 'half') {
+        setMobileSheetHeight('peek');
+      } else if (mobileSheetHeight === 'peek') {
         setSelectedSite(null);
         setMobileSheetHeight('peek');
       }
@@ -5391,13 +5409,19 @@ function App() {
   // ============================================
   if (page === 'map') {
     return (
-      <div style={{
+      <div className="map-page" style={{
         height: '100vh',
         background: '#0c0a09',
         color: '#fafaf9',
         fontFamily: "-apple-system, sans-serif",
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        overflow: 'hidden',
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0
       }}>
         <Header />
 
@@ -5783,21 +5807,29 @@ function App() {
                 animation: 'slideInRight 0.3s ease-out'
               }}
             >
-              {/* Mobile Drag Handle */}
+              {/* Mobile Drag Handle - larger touch area */}
               <div 
                 className="sheet-drag-handle"
                 onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
+                style={{ touchAction: 'none' }}
               />
-              <div style={{
-                height: 200,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                position: 'relative',
-                backgroundColor: getEraColor(selectedSite.era[0]),
-                overflow: 'hidden'
-              }}>
+              <div 
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{
+                  height: 200,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                  backgroundColor: getEraColor(selectedSite.era[0]),
+                  overflow: 'hidden',
+                  touchAction: 'pan-y'
+                }}
+              >
                 {/* Image */}
                 {selectedSite.image && (
                   <img 
@@ -5810,7 +5842,8 @@ function App() {
                       height: '100%',
                       objectFit: 'cover',
                       objectPosition: 'center',
-                      zIndex: 1
+                      zIndex: 1,
+                      pointerEvents: 'none'
                     }}
                     onError={(e) => { e.target.style.display = 'none'; }}
                   />
