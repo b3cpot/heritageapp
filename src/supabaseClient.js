@@ -280,52 +280,84 @@ export const loadAppSettings = async () => {
     const { data, error } = await supabase
       .from('app_settings')
       .select('*')
+      .eq('id', 1)
       .single();
     
     if (error) {
-      // If no settings exist yet, return defaults
-      if (error.code === 'PGRST116') {
-        console.log('No settings found, using defaults');
-        return { 
-          success: true, 
-          data: {
-            albania_card_image: '',
-            kosovo_card_image: ''
-          }
-        };
-      }
-      console.error('Error loading settings:', error);
-      return { success: false, error };
+      // If table doesn't exist or no row, return defaults
+      console.log('Settings not found, using defaults:', error.message);
+      return { 
+        success: true, 
+        data: {
+          albania_card_image: '',
+          kosovo_card_image: ''
+        }
+      };
     }
     
     console.log('✅ Loaded app settings');
     return { success: true, data };
   } catch (err) {
     console.error('Error loading settings:', err);
-    return { success: false, error: err };
+    return { 
+      success: true, 
+      data: {
+        albania_card_image: '',
+        kosovo_card_image: ''
+      }
+    };
   }
 };
 
 // Save app settings
 export const saveAppSettings = async (settings) => {
   try {
-    const { data, error } = await supabase
+    // First try to update existing row
+    const { data: existingData, error: selectError } = await supabase
       .from('app_settings')
-      .upsert({
-        id: 1, // Single row for app settings
-        albania_card_image: settings.albaniaCardImage || '',
-        kosovo_card_image: settings.kosovoCardImage || '',
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' })
-      .select();
+      .select('id')
+      .eq('id', 1)
+      .single();
     
-    if (error) {
-      console.error('Error saving settings:', error);
-      return { success: false, error };
+    if (selectError || !existingData) {
+      // Row doesn't exist, insert it
+      const { data, error } = await supabase
+        .from('app_settings')
+        .insert({
+          id: 1,
+          albania_card_image: settings.albaniaCardImage || '',
+          kosovo_card_image: settings.kosovoCardImage || '',
+          updated_at: new Date().toISOString()
+        })
+        .select();
+      
+      if (error) {
+        console.error('Error inserting settings:', error);
+        return { success: false, error };
+      }
+      
+      console.log('✅ Inserted app settings');
+      return { success: true, data };
+    } else {
+      // Row exists, update it
+      const { data, error } = await supabase
+        .from('app_settings')
+        .update({
+          albania_card_image: settings.albaniaCardImage || '',
+          kosovo_card_image: settings.kosovoCardImage || '',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1)
+        .select();
+      
+      if (error) {
+        console.error('Error updating settings:', error);
+        return { success: false, error };
+      }
+      
+      console.log('✅ Updated app settings');
+      return { success: true, data };
     }
-    
-    console.log('✅ Saved app settings');
-    return { success: true, data };
   } catch (err) {
     console.error('Error saving settings:', err);
     return { success: false, error: err };

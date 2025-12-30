@@ -8143,6 +8143,33 @@ function App() {
                     cursor: 'pointer'
                   }}
                 />
+                <button
+                  onClick={async () => {
+                    const result = await saveAppSettings({
+                      albaniaCardImage: countryCardImages.albania,
+                      kosovoCardImage: countryCardImages.kosovo
+                    });
+                    if (result.success) {
+                      alert('✅ Albania card image saved!');
+                    } else {
+                      alert('❌ Failed to save. Make sure app_settings table exists in Supabase!\n\nError: ' + (result.error?.message || 'Unknown error'));
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    marginTop: 8,
+                    padding: '10px 16px',
+                    background: '#059669',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600
+                  }}
+                >
+                  💾 Save Albania Image
+                </button>
               </div>
 
               {/* Kosovo Card Image */}
@@ -8203,6 +8230,33 @@ function App() {
                     cursor: 'pointer'
                   }}
                 />
+                <button
+                  onClick={async () => {
+                    const result = await saveAppSettings({
+                      albaniaCardImage: countryCardImages.albania,
+                      kosovoCardImage: countryCardImages.kosovo
+                    });
+                    if (result.success) {
+                      alert('✅ Kosovo card image saved!');
+                    } else {
+                      alert('❌ Failed to save. Make sure app_settings table exists in Supabase!\n\nError: ' + (result.error?.message || 'Unknown error'));
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    marginTop: 8,
+                    padding: '10px 16px',
+                    background: '#059669',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#fff',
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 600
+                  }}
+                >
+                  💾 Save Kosovo Image
+                </button>
               </div>
             </div>
 
