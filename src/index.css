@@ -260,8 +260,10 @@ select:focus-visible {
     border-top: 1px solid #44403c !important;
     box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5) !important;
     animation: slideUpSheet 0.3s ease-out !important;
-    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: height 0.25s ease-out !important;
     z-index: 1000 !important;
+    touch-action: none !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Peek state - minimal preview */
@@ -273,13 +275,14 @@ select:focus-visible {
   /* Half state - shows more content */
   .site-detail-panel.sheet-half {
     height: 60vh !important;
-    overflow-y: auto !important;
+    overflow: hidden !important;
   }
 
-  /* Full state - almost full screen */
+  /* Full state - almost full screen, scrollable */
   .site-detail-panel.sheet-full {
     height: 92vh !important;
     overflow-y: auto !important;
+    touch-action: pan-y !important;
   }
 
   /* Drag handle for mobile - swipe indicator */

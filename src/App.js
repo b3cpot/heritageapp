@@ -5799,26 +5799,23 @@ function App() {
             <div 
               ref={sheetRef}
               className={`site-detail-panel sheet-${mobileSheetHeight}`}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
               style={{
                 width: 360,
                 background: '#1c1917',
                 borderLeft: '1px solid #292524',
-                overflowY: 'auto',
+                overflowY: mobileSheetHeight === 'full' ? 'auto' : 'hidden',
                 animation: 'slideInRight 0.3s ease-out'
               }}
             >
-              {/* Mobile Drag Handle - larger touch area */}
+              {/* Mobile Drag Handle */}
               <div 
                 className="sheet-drag-handle"
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
                 style={{ touchAction: 'none' }}
               />
               <div 
-                onTouchStart={handleTouchStart}
-                onTouchMove={handleTouchMove}
-                onTouchEnd={handleTouchEnd}
                 style={{
                   height: 200,
                   display: 'flex',
@@ -5826,8 +5823,7 @@ function App() {
                   justifyContent: 'center',
                   position: 'relative',
                   backgroundColor: getEraColor(selectedSite.era[0]),
-                  overflow: 'hidden',
-                  touchAction: 'pan-y'
+                  overflow: 'hidden'
                 }}
               >
                 {/* Image */}
