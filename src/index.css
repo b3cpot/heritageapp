@@ -208,3 +208,307 @@ select:focus-visible {
     color: black;
   }
 }
+
+/* ============================================
+   MOBILE BOTTOM SHEET STYLES
+   Google Maps-style behavior
+   ============================================ */
+
+@keyframes slideUpSheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Desktop - No changes, panel stays as sidebar */
+@media (min-width: 769px) {
+  .sheet-drag-handle {
+    display: none !important;
+  }
+  
+  .site-detail-panel {
+    /* Desktop styles remain unchanged */
+  }
+}
+
+/* Mobile Bottom Sheet */
+@media (max-width: 768px) {
+  .site-detail-panel {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    border-left: none !important;
+    border-top: 1px solid #44403c !important;
+    box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5) !important;
+    animation: slideUpSheet 0.3s ease-out !important;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    z-index: 1000 !important;
+  }
+
+  /* Peek state - minimal preview */
+  .site-detail-panel.sheet-peek {
+    height: 320px !important;
+    overflow: hidden !important;
+  }
+
+  /* Half state - shows more content */
+  .site-detail-panel.sheet-half {
+    height: 60vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Full state - almost full screen */
+  .site-detail-panel.sheet-full {
+    height: 92vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Drag handle for mobile - swipe indicator */
+  .sheet-drag-handle {
+    display: flex !important;
+    justify-content: center;
+    align-items: center;
+    padding: 14px 0 10px;
+    cursor: grab;
+    touch-action: pan-y;
+    position: sticky;
+    top: 0;
+    background: #1c1917;
+    z-index: 10;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .sheet-drag-handle::before {
+    content: '';
+    width: 36px;
+    height: 5px;
+    background: #57534e;
+    border-radius: 3px;
+  }
+
+  .sheet-drag-handle:active::before {
+    background: #78716c;
+  }
+
+  /* Reduce image height on mobile for better UX */
+  .site-detail-panel > div:nth-child(2) {
+    height: 160px !important;
+  }
+
+  .site-detail-panel.sheet-peek > div:nth-child(2) {
+    height: 140px !important;
+  }
+
+  /* Ensure close button is visible */
+  .site-detail-panel button[style*="position: absolute"][style*="top: 12"] {
+    top: 8px !important;
+    right: 8px !important;
+    width: 36px !important;
+    height: 36px !important;
+  }
+}
+
+/* ============================================
+   SITE DETAIL PAGE - MOBILE RESPONSIVE
+   ============================================ */
+
+.detail-page-container {
+  min-height: 100vh;
+  background: #0c0a09;
+}
+
+.detail-hero {
+  position: relative;
+  height: 400px;
+}
+
+.detail-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 40px;
+}
+
+.detail-main {
+  min-width: 0;
+}
+
+.detail-sidebar {
+  position: relative;
+}
+
+.detail-card {
+  background: #1c1917;
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+}
+
+.detail-card-title {
+  font-family: 'Cinzel', Georgia, serif;
+  font-size: 18px;
+  color: #d6b76a;
+  margin-bottom: 16px;
+}
+
+.highlights-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.nearby-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+/* Mobile Visit Info - hidden on desktop */
+.mobile-visit-info {
+  display: none;
+}
+
+/* Mobile Detail Page Styles */
+@media (max-width: 768px) {
+  /* Show mobile visit info on mobile */
+  .mobile-visit-info {
+    display: block !important;
+  }
+
+  /* Hide sidebar on mobile (it's duplicated in main content) */
+  .detail-sidebar {
+    display: none !important;
+  }
+
+  .detail-hero {
+    height: 280px !important;
+  }
+
+  .detail-hero-title {
+    font-size: 1.5rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .detail-content {
+    grid-template-columns: 1fr !important;
+    padding: 20px 16px !important;
+    gap: 20px !important;
+  }
+
+  /* Move sidebar AFTER main content on mobile */
+  .detail-main {
+    order: 1 !important;
+  }
+
+  .detail-sidebar .sticky-card {
+    position: relative !important;
+    top: 0 !important;
+  }
+
+  .detail-card {
+    padding: 16px !important;
+    margin-bottom: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  .detail-card-title {
+    font-size: 16px !important;
+  }
+
+  .highlights-grid,
+  .nearby-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .visitor-tips-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .timeline-box {
+    padding: 10px 14px !important;
+  }
+
+  .timeline-year {
+    font-size: 15px !important;
+  }
+
+  .back-button,
+  .share-button {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+
+  .type-badge {
+    bottom: 70px !important;
+    left: 16px !important;
+    font-size: 11px !important;
+    padding: 5px 12px !important;
+  }
+
+  .hero-title-container {
+    left: 16px !important;
+    right: 16px !important;
+    bottom: 16px !important;
+  }
+
+  .era-tags {
+    flex-wrap: wrap;
+    gap: 6px !important;
+  }
+
+  .era-tag {
+    padding: 4px 10px !important;
+    font-size: 11px !important;
+  }
+
+  .action-buttons {
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .action-button {
+    width: 100% !important;
+  }
+
+  .nearby-site-card img {
+    width: 50px !important;
+    height: 50px !important;
+  }
+
+  .nearby-site-card {
+    padding: 10px !important;
+  }
+
+  .tip-card {
+    padding: 12px !important;
+  }
+
+  .tip-icon {
+    font-size: 20px !important;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 380px) {
+  .detail-hero {
+    height: 220px !important;
+  }
+
+  .detail-hero-title {
+    font-size: 1.25rem !important;
+  }
+
+  .detail-content {
+    padding: 16px 12px !important;
+  }
+
+  .detail-card {
+    padding: 14px !important;
+  }
+}

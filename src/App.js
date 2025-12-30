@@ -3616,6 +3616,45 @@ function App() {
   const [selectedCountry, setSelectedCountry] = useState(null); // 'Albania' or 'Kosovo'
   const [selectedYear, setSelectedYear] = useState(2025);
   const [selectedSite, setSelectedSite] = useState(null);
+  const [mobileSheetHeight, setMobileSheetHeight] = useState('peek'); // 'peek', 'half', 'full'
+  const touchStartY = useRef(0);
+  const sheetRef = useRef(null);
+
+  // Handle site selection with toggle behavior (like Google Maps)
+  const handleSiteClick = (site) => {
+    if (selectedSite && selectedSite.id === site.id) {
+      // Clicking same marker - close panel
+      setSelectedSite(null);
+      setMobileSheetHeight('peek');
+    } else {
+      // Clicking different marker - show panel
+      setSelectedSite(site);
+      setMobileSheetHeight('peek');
+    }
+  };
+
+  // Mobile sheet touch handlers
+  const handleTouchStart = (e) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchEnd = (e) => {
+    const deltaY = touchStartY.current - e.changedTouches[0].clientY;
+    
+    if (deltaY > 50) {
+      // Swipe up
+      if (mobileSheetHeight === 'peek') setMobileSheetHeight('half');
+      else if (mobileSheetHeight === 'half') setMobileSheetHeight('full');
+    } else if (deltaY < -50) {
+      // Swipe down
+      if (mobileSheetHeight === 'full') setMobileSheetHeight('half');
+      else if (mobileSheetHeight === 'half') setMobileSheetHeight('peek');
+      else if (mobileSheetHeight === 'peek') {
+        setSelectedSite(null);
+        setMobileSheetHeight('peek');
+      }
+    }
+  };
   const [isPlaying, setIsPlaying] = useState(false);
   const [heroYear, setHeroYear] = useState(-500);
   const [searchQuery, setSearchQuery] = useState('');
@@ -5524,7 +5563,7 @@ function App() {
               <MapboxMap
                 selectedCountry={selectedCountry}
                 sites={visibleSites}
-                onSiteClick={setSelectedSite}
+                onSiteClick={handleSiteClick}
                 selectedSite={selectedSite}
                 getEraColor={getEraColor}
                 customRoute={customRoute}
@@ -5733,13 +5772,23 @@ function App() {
 
           {/* Site Detail Panel */}
           {selectedSite && (
-            <div style={{
-              width: 360,
-              background: '#1c1917',
-              borderLeft: '1px solid #292524',
-              overflowY: 'auto',
-              animation: 'slideInRight 0.3s ease-out'
-            }}>
+            <div 
+              ref={sheetRef}
+              className={`site-detail-panel sheet-${mobileSheetHeight}`}
+              style={{
+                width: 360,
+                background: '#1c1917',
+                borderLeft: '1px solid #292524',
+                overflowY: 'auto',
+                animation: 'slideInRight 0.3s ease-out'
+              }}
+            >
+              {/* Mobile Drag Handle */}
+              <div 
+                className="sheet-drag-handle"
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              />
               <div style={{
                 height: 200,
                 display: 'flex',
@@ -6224,20 +6273,21 @@ function App() {
     const nearbySites = getNearbySites(site, 6);
     
     return (
-      <div style={{
+      <div className="detail-page-container" style={{
         minHeight: '100vh',
         background: '#0c0a09',
         color: '#fafaf9',
         fontFamily: "-apple-system, sans-serif"
       }}>
         {/* Hero Image */}
-        <div style={{
+        <div className="detail-hero" style={{
           position: 'relative',
           height: 400,
           background: `linear-gradient(to bottom, rgba(12,10,9,0) 0%, rgba(12,10,9,0.8) 70%, rgba(12,10,9,1) 100%), url(${site.image}) center/cover`
         }}>
           {/* Back Button */}
           <button
+            className="back-button"
             onClick={() => {
               setPage('map');
               setSelectedSite(site);
@@ -6257,7 +6307,8 @@ function App() {
               color: '#fff',
               cursor: 'pointer',
               fontSize: 14,
-              fontWeight: 500
+              fontWeight: 500,
+              zIndex: 10
             }}
           >
             ← Back to Map
@@ -6265,6 +6316,7 @@ function App() {
           
           {/* Share Button */}
           <button
+            className="share-button"
             onClick={() => navigator.clipboard.writeText(window.location.href)}
             style={{
               position: 'absolute',
@@ -6277,37 +6329,22 @@ function App() {
               borderRadius: 8,
               color: '#fff',
               cursor: 'pointer',
-              fontSize: 14
+              fontSize: 14,
+              zIndex: 10
             }}
           >
             <ShareIcon /> Share
           </button>
           
-          {/* Type Badge */}
-          <div style={{
-            position: 'absolute',
-            bottom: 100,
-            left: 24,
-            padding: '6px 14px',
-            background: site.type === 'Archaeological' ? '#0891b2' : 
-                        site.type === 'Fortress' ? '#7c3aed' : 
-                        site.type === 'Religious' ? '#059669' : 
-                        site.type === 'Natural' ? '#16a34a' : '#b45309',
-            borderRadius: 20,
-            fontSize: 12,
-            fontWeight: 600
-          }}>
-            {site.type}
-          </div>
-          
           {/* Title */}
-          <div style={{
+          <div className="hero-title-container" style={{
             position: 'absolute',
             bottom: 24,
             left: 24,
-            right: 24
+            right: 24,
+            zIndex: 5
           }}>
-            <h1 style={{
+            <h1 className="detail-hero-title" style={{
               fontFamily: 'Cinzel, Georgia, serif',
               fontSize: '2.5rem',
               fontWeight: 700,
@@ -6325,7 +6362,7 @@ function App() {
         </div>
         
         {/* Content */}
-        <div style={{
+        <div className="detail-content" style={{
           maxWidth: 1200,
           margin: '0 auto',
           padding: '40px 24px',
@@ -6334,12 +6371,12 @@ function App() {
           gap: 40
         }}>
           {/* Main Content */}
-          <div>
-            {/* Era Tags & Rating */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <div className="detail-main">
+            {/* Era Tags, Type & Rating */}
+            <div className="era-tags" style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
                 {site.era.map((era, i) => (
-                  <span key={i} style={{
+                  <span key={i} className="era-tag" style={{
                     background: getEraColor(era),
                     color: '#fff',
                     padding: '5px 12px',
@@ -6348,6 +6385,18 @@ function App() {
                     fontWeight: 500
                   }}>{era}</span>
                 ))}
+                <span className="era-tag" style={{
+                  background: site.type === 'Archaeological' ? '#0891b2' : 
+                              site.type === 'Fortress' ? '#7c3aed' : 
+                              site.type === 'Religious' ? '#059669' : 
+                              site.type === 'Natural' ? '#16a34a' : 
+                              site.type === 'Historic House' ? '#a855f7' : '#b45309',
+                  color: '#fff',
+                  padding: '5px 12px',
+                  borderRadius: 16,
+                  fontSize: 12,
+                  fontWeight: 500
+                }}>{site.type}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#d6b76a' }}>
                 <StarIcon /> {site.rating} <span style={{ color: '#78716c' }}>({site.reviews} reviews)</span>
@@ -6365,49 +6414,161 @@ function App() {
             </div>
             
             {/* Historical Timeline */}
-            <div style={{
+            <div className="detail-card" style={{
               background: '#1c1917',
               borderRadius: 16,
               padding: 24,
               marginBottom: 24
             }}>
-              <h2 style={{
+              <h2 className="detail-card-title" style={{
                 fontFamily: 'Cinzel, Georgia, serif',
                 fontSize: 18,
                 color: '#d6b76a',
                 marginBottom: 16
               }}>Historical Timeline</h2>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{
+                <div className="timeline-box" style={{
                   textAlign: 'center',
                   padding: '12px 20px',
                   background: '#292524',
                   borderRadius: 12
                 }}>
                   <div style={{ fontSize: 11, color: '#78716c', marginBottom: 4 }}>FOUNDED</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#d6b76a' }}>{formatYear(site.startYear)}</div>
+                  <div className="timeline-year" style={{ fontSize: 18, fontWeight: 700, color: '#d6b76a' }}>{formatYear(site.startYear)}</div>
                 </div>
                 <div style={{ flex: 1, height: 4, background: 'linear-gradient(90deg, #d6b76a, #78350f)', borderRadius: 2 }} />
-                <div style={{
+                <div className="timeline-box" style={{
                   textAlign: 'center',
                   padding: '12px 20px',
                   background: '#292524',
                   borderRadius: 12
                 }}>
                   <div style={{ fontSize: 11, color: '#78716c', marginBottom: 4 }}>{site.endYear === 2024 || site.endYear === 2025 ? 'PRESENT' : 'ENDED'}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#78350f' }}>{formatYear(site.endYear)}</div>
+                  <div className="timeline-year" style={{ fontSize: 18, fontWeight: 700, color: '#78350f' }}>{formatYear(site.endYear)}</div>
                 </div>
               </div>
             </div>
             
+            {/* Mobile-only: Visit Information (shown after Timeline on mobile) */}
+            <div className="mobile-visit-info" style={{
+              background: '#1c1917',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 24
+            }}>
+              <h3 className="detail-card-title" style={{
+                fontFamily: 'Cinzel, Georgia, serif',
+                fontSize: 16,
+                color: '#d6b76a',
+                marginBottom: 16
+              }}>Visit Information</h3>
+              
+              <div style={{ marginBottom: 16 }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 0',
+                  borderBottom: '1px solid #292524'
+                }}>
+                  <ClockIcon />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>OPENING HOURS</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.visitInfo.hours}</div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 0',
+                  borderBottom: '1px solid #292524'
+                }}>
+                  <MapPinIcon size={18} />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>LOCATION</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.county}, {site.region}</div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 0',
+                  borderBottom: '1px solid #292524'
+                }}>
+                  <TicketIcon />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>ENTRY FEE</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.visitInfo.entry}</div>
+                  </div>
+                </div>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '10px 0'
+                }}>
+                  <ClockIcon />
+                  <div>
+                    <div style={{ color: '#78716c', fontSize: 11 }}>SUGGESTED DURATION</div>
+                    <div style={{ color: '#fafaf9', fontSize: 14 }}>{site.visitInfo.duration}</div>
+                  </div>
+                </div>
+              </div>
+              
+              <a
+                href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: 14,
+                  background: '#1a73e8',
+                  borderRadius: 10,
+                  color: '#fff',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  marginBottom: 10
+                }}
+              >
+                <MapPinIcon size={18} /> Get Directions
+              </a>
+              
+              <button
+                onClick={() => addToRoute(site)}
+                style={{
+                  width: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  padding: 14,
+                  background: customRoute.find(s => s.id === site.id) ? '#22c55e' : '#b45309',
+                  border: 'none',
+                  borderRadius: 10,
+                  color: '#fff',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: 'pointer'
+                }}
+              >
+                {customRoute.find(s => s.id === site.id) ? '✓ Added to Route' : '+ Add to My Route'}
+              </button>
+            </div>
+            
             {/* About */}
-            <div style={{
+            <div className="detail-card" style={{
               background: '#1c1917',
               borderRadius: 16,
               padding: 24,
               marginBottom: 24
             }}>
-              <h2 style={{
+              <h2 className="detail-card-title" style={{
                 fontFamily: 'Cinzel, Georgia, serif',
                 fontSize: 18,
                 color: '#d6b76a',
@@ -6474,11 +6635,11 @@ function App() {
               }}>
                 💡 Visitor Tips
               </h2>
-              <div style={{
+              <div className="visitor-tips-grid" style={{
                 display: 'grid',
                 gap: 16
               }}>
-                <div style={{
+                <div className="tip-card" style={{
                   display: 'flex',
                   gap: 12,
                   padding: 16,
@@ -6486,7 +6647,7 @@ function App() {
                   borderRadius: 12,
                   border: '1px solid rgba(214, 183, 106, 0.2)'
                 }}>
-                  <div style={{ fontSize: 24 }}>🕐</div>
+                  <div className="tip-icon" style={{ fontSize: 24 }}>🕐</div>
                   <div>
                     <div style={{ fontWeight: 600, color: '#fafaf9', marginBottom: 4 }}>Best Time to Visit</div>
                     <div style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6 }}>
@@ -6494,7 +6655,7 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div style={{
+                <div className="tip-card" style={{
                   display: 'flex',
                   gap: 12,
                   padding: 16,
@@ -6502,7 +6663,7 @@ function App() {
                   borderRadius: 12,
                   border: '1px solid rgba(34, 197, 94, 0.2)'
                 }}>
-                  <div style={{ fontSize: 24 }}>👟</div>
+                  <div className="tip-icon" style={{ fontSize: 24 }}>👟</div>
                   <div>
                     <div style={{ fontWeight: 600, color: '#fafaf9', marginBottom: 4 }}>What to Wear</div>
                     <div style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6 }}>
@@ -6510,7 +6671,7 @@ function App() {
                     </div>
                   </div>
                 </div>
-                <div style={{
+                <div className="tip-card" style={{
                   display: 'flex',
                   gap: 12,
                   padding: 16,
@@ -6518,7 +6679,7 @@ function App() {
                   borderRadius: 12,
                   border: '1px solid rgba(59, 130, 246, 0.2)'
                 }}>
-                  <div style={{ fontSize: 24 }}>📷</div>
+                  <div className="tip-icon" style={{ fontSize: 24 }}>📷</div>
                   <div>
                     <div style={{ fontWeight: 600, color: '#fafaf9', marginBottom: 4 }}>Photo Spots</div>
                     <div style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6 }}>
@@ -6579,19 +6740,19 @@ function App() {
             </div>
             
             {/* Highlights */}
-            <div style={{
+            <div className="detail-card" style={{
               background: '#1c1917',
               borderRadius: 16,
               padding: 24,
               marginBottom: 24
             }}>
-              <h2 style={{
+              <h2 className="detail-card-title" style={{
                 fontFamily: 'Cinzel, Georgia, serif',
                 fontSize: 18,
                 color: '#d6b76a',
                 marginBottom: 16
               }}>Highlights</h2>
-              <div style={{
+              <div className="highlights-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
                 gap: 12
@@ -6604,7 +6765,8 @@ function App() {
                     padding: 12,
                     background: '#292524',
                     borderRadius: 10,
-                    color: '#a8a29e'
+                    color: '#a8a29e',
+                    fontSize: 14
                   }}>
                     <div style={{
                       width: 28,
@@ -6615,7 +6777,8 @@ function App() {
                       alignItems: 'center',
                       justifyContent: 'center',
                       color: '#fff',
-                      fontSize: 14
+                      fontSize: 14,
+                      flexShrink: 0
                     }}>✓</div>
                     {h}
                   </div>
@@ -6629,13 +6792,13 @@ function App() {
               borderRadius: 16,
               padding: 24
             }}>
-              <h2 style={{
+              <h2 className="detail-card-title" style={{
                 fontFamily: 'Cinzel, Georgia, serif',
                 fontSize: 18,
                 color: '#d6b76a',
                 marginBottom: 16
               }}>Nearby Heritage Sites</h2>
-              <div style={{
+              <div className="nearby-grid" style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(2, 1fr)',
                 gap: 12
@@ -6643,6 +6806,7 @@ function App() {
                 {nearbySites.map((nearby) => (
                   <div
                     key={nearby.id}
+                    className="nearby-site-card"
                     onClick={() => {
                       setDetailSiteId(nearby.id);
                       window.scrollTo(0, 0);
@@ -6665,7 +6829,8 @@ function App() {
                         width: 60,
                         height: 60,
                         borderRadius: 8,
-                        objectFit: 'cover'
+                        objectFit: 'cover',
+                        flexShrink: 0
                       }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -6690,9 +6855,9 @@ function App() {
           </div>
           
           {/* Sidebar */}
-          <div>
+          <div className="detail-sidebar">
             {/* Visit Info Card */}
-            <div style={{
+            <div className="sticky-card" style={{
               background: '#1c1917',
               borderRadius: 16,
               padding: 24,
@@ -6700,7 +6865,7 @@ function App() {
               position: 'sticky',
               top: 20
             }}>
-              <h3 style={{
+              <h3 className="detail-card-title" style={{
                 fontFamily: 'Cinzel, Georgia, serif',
                 fontSize: 16,
                 color: '#d6b76a',
@@ -6780,6 +6945,7 @@ function App() {
                 href={`https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}`}
                 target="_blank"
                 rel="noopener noreferrer"
+                className="action-button"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -6800,6 +6966,7 @@ function App() {
               
               <button
                 onClick={() => addToRoute(site)}
+                className="action-button"
                 style={{
                   width: '100%',
                   display: 'flex',
@@ -6823,6 +6990,7 @@ function App() {
               {isLoggedIn && (
                 <button
                   onClick={() => setEditingSite({...site})}
+                  className="action-button"
                   style={{
                     width: '100%',
                     marginTop: 10,
