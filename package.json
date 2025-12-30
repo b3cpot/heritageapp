@@ -5,9 +5,11 @@
   "private": true,
   "dependencies": {
     "@supabase/supabase-js": "^2.89.0",
+    "i18next": "^25.7.3",
     "mapbox-gl": "^3.17.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
+    "react-i18next": "^16.5.0",
     "react-scripts": "5.0.1"
   },
   "scripts": {

@@ -1,4 +1,6 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import './i18n';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase, testConnection, loadSitesFromDB, saveSiteToDB, saveAllSitesToDB, uploadImage, loadAppSettings, saveAppSettings } from './supabaseClient';
@@ -3612,6 +3614,7 @@ const GlobeIcon = () => (
 // MAIN APP COMPONENT
 // ============================================
 function App() {
+  const { t, i18n } = useTranslation();
   const [page, setPage] = useState('home');
   const [selectedCountry, setSelectedCountry] = useState(null); // 'Albania' or 'Kosovo'
   const [selectedYear, setSelectedYear] = useState(2025);
@@ -4036,10 +4039,30 @@ function App() {
             Login
           </button>
         )}
-      </nav>
-    </header>
-  );
-
+        {/* Language Toggle */}
+        <button
+          onClick={() => {
+            const newLang = i18n.language === 'en' ? 'sq' : 'en';
+            i18n.changeLanguage(newLang);
+            localStorage.setItem('language', newLang);
+          }}
+          style={{
+            background: '#292524',
+            border: '1px solid #44403c',
+            color: '#fafaf9',
+            cursor: 'pointer',
+            padding: '6px 10px',
+            borderRadius: 6,
+            fontSize: 13,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 4,
+            marginLeft: 8
+          }}
+          title={i18n.language === 'en' ? 'Switch to Albanian' : 'Switch to English'}
+        >
+          🌐 {i18n.language === 'en' ? 'EN' : 'SQ'}
+        </button>
   // ============================================
   // LOGIN MODAL
   // ============================================
