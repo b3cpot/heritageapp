@@ -3614,28 +3614,52 @@ const GlobeIcon = () => (
 // ============================================
 // MAIN APP COMPONENT
 // ============================================
-function App() {
-  const { t, i18n } = useTranslation();
-  
-  // Password protection
+
+// Wrapper component for password protection
+function AppWithAuth() {
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return localStorage.getItem('heritage_access') === 'granted';
   });
 
-  // If not authenticated, show password screen
   if (!isAuthenticated) {
     return <PasswordProtection onSuccess={() => setIsAuthenticated(true)} />;
   }
 
+  return <App />;
+}
+
+function App() {
+  const { t, i18n } = useTranslation();
+  
   const [page, setPage] = useState('home');
-  const [selectedCountry, setSelectedCountry] = useState(null); // 'Albania' or 'Kosovo'
+  const [selectedCountry, setSelectedCountry] = useState(null);
   const [selectedYear, setSelectedYear] = useState(2025);
   const [selectedSite, setSelectedSite] = useState(null);
-  const [mobileSheetHeight, setMobileSheetHeight] = useState('peek'); // 'peek', 'half', 'full'
+  const [mobileSheetHeight, setMobileSheetHeight] = useState('peek');
   const touchStartY = useRef(0);
   const touchCurrentY = useRef(0);
   const isDragging = useRef(false);
   const sheetRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [heroYear, setHeroYear] = useState(-500);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [customRoute, setCustomRoute] = useState([]);
+  const [showRoutePanel, setShowRoutePanel] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [editingSite, setEditingSite] = useState(null);
+  const [sitesList, setSitesList] = useState(heritageSites);
+  const [adminFilter, setAdminFilter] = useState('all');
+  const [adminSearch, setAdminSearch] = useState('');
+  const [availableImages, setAvailableImages] = useState(defaultImages);
+  const [countryCardImages, setCountryCardImages] = useState({
+    albania: '',
+    kosovo: ''
+  });
 
   // Handle site selection with toggle behavior (like Google Maps)
   const handleSiteClick = (site) => {
@@ -3688,37 +3712,6 @@ function App() {
       }
     }
   };
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [heroYear, setHeroYear] = useState(-500);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showMobileSearch, setShowMobileSearch] = useState(false);
-  
-  // Custom route builder state
-  const [customRoute, setCustomRoute] = useState([]);
-  const [showRoutePanel, setShowRoutePanel] = useState(false);
-  
-  // Login and admin state
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-  const [editingSite, setEditingSite] = useState(null);
-  
-  // Sites list - start with default, will be replaced by Supabase data
-  const [sitesList, setSitesList] = useState(heritageSites);
-  
-  const [adminFilter, setAdminFilter] = useState('all');
-  const [adminSearch, setAdminSearch] = useState('');
-  
-  // Images - just use defaults (uploads go to Supabase Storage)
-  const [availableImages, setAvailableImages] = useState(defaultImages);
-  
-  // Country card images (for Explore page)
-  const [countryCardImages, setCountryCardImages] = useState({
-    albania: '',
-    kosovo: ''
-  });
   
   // Clear old localStorage data on mount (we use Supabase now)
   useEffect(() => {
@@ -8463,7 +8456,7 @@ function App() {
   return null;
 }
 
-export default App;
+export default AppWithAuth;
 
 
 
