@@ -259,11 +259,26 @@ select:focus-visible {
     border-left: none !important;
     border-top: 1px solid #44403c !important;
     box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5) !important;
-    animation: slideUpSheet 0.3s ease-out !important;
-    transition: height 0.25s ease-out !important;
     z-index: 1000 !important;
     touch-action: none !important;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Hidden state - always mounted but invisible */
+  .site-detail-panel.sheet-hidden {
+    opacity: 0 !important;
+    transform: translateY(100%) !important;
+    pointer-events: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Visible state - animate in */
+  .site-detail-panel.sheet-visible {
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    transition: opacity 0.25s ease-out, transform 0.25s ease-out, height 0.25s ease-out !important;
   }
 
   /* Peek state - minimal preview */

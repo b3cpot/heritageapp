@@ -5796,38 +5796,37 @@ function App() {
 
           {/* Site Detail Panel */}
           {selectedSite && (
+          <div 
+            ref={sheetRef}
+            className={`site-detail-panel sheet-${mobileSheetHeight} sheet-visible`}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              width: 360,
+              background: '#1c1917',
+              borderLeft: '1px solid #292524',
+              overflowY: mobileSheetHeight === 'full' ? 'auto' : 'hidden'
+            }}
+          >
+            {/* Mobile Drag Handle */}
             <div 
-              ref={sheetRef}
-              className={`site-detail-panel sheet-${mobileSheetHeight}`}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
+              className="sheet-drag-handle"
+              style={{ touchAction: 'none' }}
+            />
+            <div 
               style={{
-                width: 360,
-                background: '#1c1917',
-                borderLeft: '1px solid #292524',
-                overflowY: mobileSheetHeight === 'full' ? 'auto' : 'hidden',
-                animation: 'slideInRight 0.3s ease-out'
+                height: 200,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+                backgroundColor: getEraColor(selectedSite.era[0]),
+                overflow: 'hidden'
               }}
             >
-              {/* Mobile Drag Handle */}
-              <div 
-                className="sheet-drag-handle"
-                style={{ touchAction: 'none' }}
-              />
-              <div 
-                style={{
-                  height: 200,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  position: 'relative',
-                  backgroundColor: getEraColor(selectedSite.era[0]),
-                  overflow: 'hidden'
-                }}
-              >
-                {/* Image */}
-                {selectedSite.image && (
+              {/* Image */}
+              {selectedSite.image && (
                   <img 
                     src={selectedSite.image} 
                     alt={selectedSite.name}
