@@ -3975,8 +3975,8 @@ function App() {
               gap: 4
             }}
           >
-            {p === 'select' ? 'Explore' : p === 'myroute' ? (
-              <>My Route {customRoute.length > 0 && <span style={{
+            {p === 'select' ? t('explore') : p === 'myroute' ? (
+              <>{t('myRoute')} {customRoute.length > 0 && <span style={{
                 background: '#b45309',
                 borderRadius: '50%',
                 width: 18,
@@ -3986,7 +3986,7 @@ function App() {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>{customRoute.length}</span>}</>
-            ) : p.charAt(0).toUpperCase() + p.slice(1)}
+            ) : p === 'routes' ? t('routes') : t('search')}
           </button>
         ))}
         {isLoggedIn ? (
@@ -4006,7 +4006,7 @@ function App() {
                 gap: 4
               }}
             >
-              🛡️ Admin
+              🛡️ {t('admin')}
             </button>
             <button
               onClick={handleLogout}
@@ -4020,7 +4020,7 @@ function App() {
                 fontSize: 13
               }}
             >
-              Logout
+              {t('logout')}
             </button>
           </>
         ) : (
@@ -4036,7 +4036,7 @@ function App() {
               fontSize: 13
             }}
           >
-            Login
+            {t('login')}
           </button>
         )}
         {/* Language Toggle */}
@@ -5011,10 +5011,10 @@ function App() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text'
             }}>
-              Explore 8000 Years of Albanian & Kosovar Heritage
+              {t('heroTitle')}
             </h1>
             <p style={{ color: '#a8a29e', marginBottom: 32 }}>
-              Interactive timeline • Archaeological sites • Historical routes
+              {t('heroSubtitle')}
             </p>
             <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
@@ -5034,7 +5034,7 @@ function App() {
                   transition: 'transform 0.2s'
                 }}
               >
-                <CompassIcon /> Start Exploring
+                <CompassIcon /> {t('startExploring')}
               </button>
               <button style={{
                 display: 'flex',
@@ -5195,10 +5195,10 @@ function App() {
             fontSize: '1.75rem',
             marginBottom: 16
           }}>
-            Ready to Explore?
+            {t('readyToExplore')}
           </h2>
           <p style={{ color: '#d6d3d1', marginBottom: 24, maxWidth: 500, margin: '0 auto 24px' }}>
-            Discover the rich heritage of Albania and Kosovo through our interactive time-map
+            {t('discoverHeritage')}
           </p>
           <button
             onClick={() => setPage('select')}
@@ -5213,7 +5213,7 @@ function App() {
               fontSize: 16
             }}
           >
-            Open the Map
+            {t('openTheMap')}
           </button>
         </section>
 
@@ -5256,10 +5256,10 @@ function App() {
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text'
           }}>
-            Choose Your Destination
+            {t('chooseDestination')}
           </h1>
           <p style={{ color: '#a8a29e', marginBottom: 48 }}>
-            Select a country to explore its heritage sites
+            {t('selectCountry')}
           </p>
           
           <div style={{
@@ -5330,16 +5330,16 @@ function App() {
                   gap: 6
                 }}>
                   <span style={{ padding: '4px 10px', background: 'rgba(0,0,0,0.5)', borderRadius: 6, fontSize: 11 }}>
-                    {heritageSites.filter(s => s.region === 'Albania').length} sites
+                    {heritageSites.filter(s => s.region === 'Albania').length} {t('sites')}
                   </span>
                 </div>
               </div>
               <div style={{ padding: 24 }}>
                 <h2 style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: '1.5rem', marginBottom: 8 }}>
-                  Albania
+                  {t('albania')}
                 </h2>
                 <p style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
-                  Explore ancient Illyrian fortresses, Greek colonies, Roman ruins, and Ottoman architecture along the stunning Adriatic coast.
+                  {t('albaniaDesc')}
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {['Butrint', 'Apollonia', 'Berat', 'Gjirokastër'].map(site => (
@@ -5407,16 +5407,16 @@ function App() {
                   gap: 6
                 }}>
                   <span style={{ padding: '4px 10px', background: 'rgba(0,0,0,0.5)', borderRadius: 6, fontSize: 11 }}>
-                    {heritageSites.filter(s => s.region === 'Kosovo').length} sites
+                    {heritageSites.filter(s => s.region === 'Kosovo').length} {t('sites')}
                   </span>
                 </div>
               </div>
               <div style={{ padding: 24 }}>
                 <h2 style={{ fontFamily: 'Cinzel, Georgia, serif', fontSize: '1.5rem', marginBottom: 8 }}>
-                  Kosovo
+                  {t('kosovo')}
                 </h2>
                 <p style={{ color: '#a8a29e', fontSize: 14, lineHeight: 1.6, marginBottom: 16 }}>
-                  Discover medieval monasteries, Ottoman mosques, ancient Roman cities, and the rich cultural heritage of the Balkans heartland.
+                  {t('kosovoDesc')}
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {['Prizren', 'Ulpiana', 'Graçanica', 'Peć'].map(site => (
@@ -5446,7 +5446,7 @@ function App() {
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#78716c'; e.currentTarget.style.color = '#fff'; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = '#44403c'; e.currentTarget.style.color = '#a8a29e'; }}
             >
-              Explore Both Countries Together
+              {t('exploreBoth')}
             </button>
           </div>
         </div>
