@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import './i18n';
+import PasswordProtection from './PasswordProtection';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase, testConnection, loadSitesFromDB, saveSiteToDB, saveAllSitesToDB, uploadImage, loadAppSettings, saveAppSettings } from './supabaseClient';
@@ -3615,6 +3616,17 @@ const GlobeIcon = () => (
 // ============================================
 function App() {
   const { t, i18n } = useTranslation();
+  
+  // Password protection
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return localStorage.getItem('heritage_access') === 'granted';
+  });
+
+  // If not authenticated, show password screen
+  if (!isAuthenticated) {
+    return <PasswordProtection onSuccess={() => setIsAuthenticated(true)} />;
+  }
+
   const [page, setPage] = useState('home');
   const [selectedCountry, setSelectedCountry] = useState(null); // 'Albania' or 'Kosovo'
   const [selectedYear, setSelectedYear] = useState(2025);
