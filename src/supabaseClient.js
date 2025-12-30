@@ -271,3 +271,63 @@ export const listImages = async () => {
     return { success: false, error: err };
   }
 };
+
+// ============ APP SETTINGS FUNCTIONS ============
+
+// Load app settings (country card images, etc.)
+export const loadAppSettings = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('*')
+      .single();
+    
+    if (error) {
+      // If no settings exist yet, return defaults
+      if (error.code === 'PGRST116') {
+        console.log('No settings found, using defaults');
+        return { 
+          success: true, 
+          data: {
+            albania_card_image: '',
+            kosovo_card_image: ''
+          }
+        };
+      }
+      console.error('Error loading settings:', error);
+      return { success: false, error };
+    }
+    
+    console.log('✅ Loaded app settings');
+    return { success: true, data };
+  } catch (err) {
+    console.error('Error loading settings:', err);
+    return { success: false, error: err };
+  }
+};
+
+// Save app settings
+export const saveAppSettings = async (settings) => {
+  try {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .upsert({
+        id: 1, // Single row for app settings
+        albania_card_image: settings.albaniaCardImage || '',
+        kosovo_card_image: settings.kosovoCardImage || '',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' })
+      .select();
+    
+    if (error) {
+      console.error('Error saving settings:', error);
+      return { success: false, error };
+    }
+    
+    console.log('✅ Saved app settings');
+    return { success: true, data };
+  } catch (err) {
+    console.error('Error saving settings:', err);
+    return { success: false, error: err };
+  }
+};

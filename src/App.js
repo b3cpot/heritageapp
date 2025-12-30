@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import { supabase, testConnection, loadSitesFromDB, saveSiteToDB, saveAllSitesToDB, uploadImage } from './supabaseClient';
+import { supabase, testConnection, loadSitesFromDB, saveSiteToDB, saveAllSitesToDB, uploadImage, loadAppSettings, saveAppSettings } from './supabaseClient';
 
 // Mapbox Access Token - loaded from environment variable
 mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN;
@@ -3699,6 +3699,12 @@ function App() {
   // Images - just use defaults (uploads go to Supabase Storage)
   const [availableImages, setAvailableImages] = useState(defaultImages);
   
+  // Country card images (for Explore page)
+  const [countryCardImages, setCountryCardImages] = useState({
+    albania: '',
+    kosovo: ''
+  });
+  
   // Clear old localStorage data on mount (we use Supabase now)
   useEffect(() => {
     try {
@@ -3729,6 +3735,16 @@ function App() {
           if (saveResult.success) {
             console.log('✅ Initial sites saved to database!');
           }
+        }
+        
+        // Load app settings (country card images)
+        const settingsResult = await loadAppSettings();
+        if (settingsResult.success && settingsResult.data) {
+          setCountryCardImages({
+            albania: settingsResult.data.albania_card_image || '',
+            kosovo: settingsResult.data.kosovo_card_image || ''
+          });
+          console.log('🎨 Loaded country card images');
         }
       } else {
         console.error('❌ Supabase connection failed:', result.error);
@@ -5246,35 +5262,39 @@ function App() {
             >
               <div style={{
                 height: 220,
-                background: 'linear-gradient(135deg, #78350f 0%, #1c1917 100%)',
+                background: countryCardImages.albania 
+                  ? `linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(28,25,23,0.8) 100%), url(${countryCardImages.albania}) center/cover`
+                  : 'linear-gradient(135deg, #78350f 0%, #1c1917 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 position: 'relative'
               }}>
-                {/* Albania SVG Shape */}
-                <svg viewBox="0 0 200 300" style={{ height: '85%', opacity: 0.9 }}>
-                  <path
-                    d="M100,10 
-                       L130,15 L145,25 L155,45 L160,70 
-                       L158,95 L150,120 L145,150
-                       L150,180 L155,210 L150,240 
-                       L140,260 L120,275 L95,285 
-                       L70,280 L55,265 L50,240 
-                       L55,210 L52,180 L48,150 
-                       L45,120 L50,90 L55,60 
-                       L65,35 L80,20 Z"
-                    fill="#C8A882"
-                    stroke="#fff"
-                    strokeWidth="2"
-                  />
-                  {/* Double-headed eagle silhouette */}
-                  <path
-                    d="M100,100 L90,110 L80,105 L85,120 L75,130 L90,125 L95,140 L100,130 L105,140 L110,125 L125,130 L115,120 L120,105 L110,110 Z"
-                    fill="#1c1917"
-                    opacity="0.6"
-                  />
-                </svg>
+                {/* Albania SVG Shape - only show if no image */}
+                {!countryCardImages.albania && (
+                  <svg viewBox="0 0 200 300" style={{ height: '85%', opacity: 0.9 }}>
+                    <path
+                      d="M100,10 
+                         L130,15 L145,25 L155,45 L160,70 
+                         L158,95 L150,120 L145,150
+                         L150,180 L155,210 L150,240 
+                         L140,260 L120,275 L95,285 
+                         L70,280 L55,265 L50,240 
+                         L55,210 L52,180 L48,150 
+                         L45,120 L50,90 L55,60 
+                         L65,35 L80,20 Z"
+                      fill="#C8A882"
+                      stroke="#fff"
+                      strokeWidth="2"
+                    />
+                    {/* Double-headed eagle silhouette */}
+                    <path
+                      d="M100,100 L90,110 L80,105 L85,120 L75,130 L90,125 L95,140 L100,130 L105,140 L110,125 L125,130 L115,120 L120,105 L110,110 Z"
+                      fill="#1c1917"
+                      opacity="0.6"
+                    />
+                  </svg>
+                )}
                 <div style={{
                   position: 'absolute',
                   bottom: 12,
@@ -5321,33 +5341,37 @@ function App() {
             >
               <div style={{
                 height: 220,
-                background: 'linear-gradient(135deg, #1e3a5f 0%, #1c1917 100%)',
+                background: countryCardImages.kosovo 
+                  ? `linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(28,25,23,0.8) 100%), url(${countryCardImages.kosovo}) center/cover`
+                  : 'linear-gradient(135deg, #1e3a5f 0%, #1c1917 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 position: 'relative'
               }}>
-                {/* Kosovo SVG Shape */}
-                <svg viewBox="0 0 200 200" style={{ height: '75%', opacity: 0.9 }}>
-                  <path
-                    d="M60,40 
-                       L90,30 L120,35 L150,50 
-                       L165,75 L170,105 L165,135 
-                       L150,155 L120,165 L90,160 
-                       L60,145 L45,120 L40,90 
-                       L45,60 Z"
-                    fill="#4A90A4"
-                    stroke="#fff"
-                    strokeWidth="2"
-                  />
-                  {/* Stars */}
-                  <circle cx="80" cy="85" r="4" fill="#FFD700" />
-                  <circle cx="100" cy="75" r="4" fill="#FFD700" />
-                  <circle cx="120" cy="80" r="4" fill="#FFD700" />
-                  <circle cx="95" cy="100" r="4" fill="#FFD700" />
-                  <circle cx="115" cy="100" r="4" fill="#FFD700" />
-                  <circle cx="105" cy="120" r="4" fill="#FFD700" />
-                </svg>
+                {/* Kosovo SVG Shape - only show if no image */}
+                {!countryCardImages.kosovo && (
+                  <svg viewBox="0 0 200 200" style={{ height: '75%', opacity: 0.9 }}>
+                    <path
+                      d="M60,40 
+                         L90,30 L120,35 L150,50 
+                         L165,75 L170,105 L165,135 
+                         L150,155 L120,165 L90,160 
+                         L60,145 L45,120 L40,90 
+                         L45,60 Z"
+                      fill="#4A90A4"
+                      stroke="#fff"
+                      strokeWidth="2"
+                    />
+                    {/* Stars */}
+                    <circle cx="80" cy="85" r="4" fill="#FFD700" />
+                    <circle cx="100" cy="75" r="4" fill="#FFD700" />
+                    <circle cx="120" cy="80" r="4" fill="#FFD700" />
+                    <circle cx="95" cy="100" r="4" fill="#FFD700" />
+                    <circle cx="115" cy="100" r="4" fill="#FFD700" />
+                    <circle cx="105" cy="120" r="4" fill="#FFD700" />
+                  </svg>
+                )}
                 <div style={{
                   position: 'absolute',
                   bottom: 12,
@@ -5368,7 +5392,7 @@ function App() {
                   Discover medieval monasteries, Ottoman mosques, ancient Roman cities, and the rich cultural heritage of the Balkans heartland.
                 </p>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {['Prizren', 'Ulpiana', 'Graçanica', 'PeÄ‡'].map(site => (
+                  {['Prizren', 'Ulpiana', 'Graçanica', 'Peć'].map(site => (
                     <span key={site} style={{ padding: '4px 10px', background: '#292524', borderRadius: 4, fontSize: 12, color: '#a8a29e' }}>
                       {site}
                     </span>
@@ -8039,6 +8063,176 @@ function App() {
                 No sites found matching your criteria
               </div>
             )}
+          </div>
+
+          {/* Country Card Images Section */}
+          <div style={{
+            marginTop: 32,
+            background: '#292524',
+            borderRadius: 12,
+            padding: 24
+          }}>
+            <h2 style={{
+              fontFamily: 'Cinzel, Georgia, serif',
+              fontSize: '1.25rem',
+              marginBottom: 16,
+              color: '#d6b76a'
+            }}>
+              🖼️ Country Card Images
+            </h2>
+            <p style={{ color: '#78716c', fontSize: 13, marginBottom: 20 }}>
+              These images appear on the "Start Exploring" page. <strong>Recommended size: 680×440 pixels</strong> (or 340×220 minimum). Use landscape orientation photos.
+            </p>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+              {/* Albania Card Image */}
+              <div style={{ background: '#1c1917', borderRadius: 12, padding: 16 }}>
+                <h3 style={{ fontSize: 16, marginBottom: 12, color: '#fafaf9' }}>Albania Card</h3>
+                <div style={{
+                  height: 140,
+                  background: countryCardImages.albania 
+                    ? `url(${countryCardImages.albania}) center/cover`
+                    : 'linear-gradient(135deg, #78350f 0%, #1c1917 100%)',
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#78716c'
+                }}>
+                  {!countryCardImages.albania && 'No image set'}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Image URL (680×440 recommended)"
+                  value={countryCardImages.albania}
+                  onChange={(e) => setCountryCardImages(prev => ({ ...prev, albania: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    background: '#292524',
+                    border: '1px solid #44403c',
+                    borderRadius: 6,
+                    color: '#fafaf9',
+                    fontSize: 13,
+                    marginBottom: 8
+                  }}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const result = await uploadImage(file, `albania-card-${Date.now()}.jpg`);
+                      if (result.success) {
+                        setCountryCardImages(prev => ({ ...prev, albania: result.url }));
+                      } else {
+                        alert('Upload failed: ' + (result.error?.message || 'Unknown error'));
+                      }
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: 8,
+                    background: '#44403c',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#fafaf9',
+                    fontSize: 12,
+                    cursor: 'pointer'
+                  }}
+                />
+              </div>
+
+              {/* Kosovo Card Image */}
+              <div style={{ background: '#1c1917', borderRadius: 12, padding: 16 }}>
+                <h3 style={{ fontSize: 16, marginBottom: 12, color: '#fafaf9' }}>Kosovo Card</h3>
+                <div style={{
+                  height: 140,
+                  background: countryCardImages.kosovo 
+                    ? `url(${countryCardImages.kosovo}) center/cover`
+                    : 'linear-gradient(135deg, #1e3a5f 0%, #1c1917 100%)',
+                  borderRadius: 8,
+                  marginBottom: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#78716c'
+                }}>
+                  {!countryCardImages.kosovo && 'No image set'}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Image URL (680×440 recommended)"
+                  value={countryCardImages.kosovo}
+                  onChange={(e) => setCountryCardImages(prev => ({ ...prev, kosovo: e.target.value }))}
+                  style={{
+                    width: '100%',
+                    padding: 10,
+                    background: '#292524',
+                    border: '1px solid #44403c',
+                    borderRadius: 6,
+                    color: '#fafaf9',
+                    fontSize: 13,
+                    marginBottom: 8
+                  }}
+                />
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      const result = await uploadImage(file, `kosovo-card-${Date.now()}.jpg`);
+                      if (result.success) {
+                        setCountryCardImages(prev => ({ ...prev, kosovo: result.url }));
+                      } else {
+                        alert('Upload failed: ' + (result.error?.message || 'Unknown error'));
+                      }
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: 8,
+                    background: '#44403c',
+                    border: 'none',
+                    borderRadius: 6,
+                    color: '#fafaf9',
+                    fontSize: 12,
+                    cursor: 'pointer'
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <button
+              onClick={async () => {
+                const result = await saveAppSettings({
+                  albaniaCardImage: countryCardImages.albania,
+                  kosovoCardImage: countryCardImages.kosovo
+                });
+                if (result.success) {
+                  alert('✅ Country card images saved!');
+                } else {
+                  alert('❌ Failed to save: ' + (result.error?.message || 'Unknown error'));
+                }
+              }}
+              style={{
+                marginTop: 16,
+                padding: '10px 20px',
+                background: '#059669',
+                border: 'none',
+                borderRadius: 6,
+                color: '#fff',
+                cursor: 'pointer',
+                fontSize: 14,
+                fontWeight: 600
+              }}
+            >
+              💾 Save Country Card Images
+            </button>
           </div>
 
           {/* Footer Info */}
