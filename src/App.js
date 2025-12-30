@@ -72,7 +72,7 @@ const MapboxMap = ({ selectedCountry, sites, onSiteClick, selectedSite, getEraCo
 
   const getMapZoom = () => {
     if (selectedCountry === 'Albania') return 7;
-    if (selectedCountry === 'Kosovo') return 8.5;
+    if (selectedCountry === 'Kosovo') return 7.2;
     return 6.5;
   };
 
@@ -3676,6 +3676,7 @@ function App() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [heroYear, setHeroYear] = useState(-500);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showMobileSearch, setShowMobileSearch] = useState(false);
   
   // Custom route builder state
   const [customRoute, setCustomRoute] = useState([]);
@@ -5428,8 +5429,33 @@ function App() {
         <div style={{ flex: 1, display: 'flex', marginTop: 56, overflow: 'hidden' }}>
           {/* Map Area */}
           <div style={{ flex: 1, position: 'relative', display: 'flex', flexDirection: 'column' }}>
-            {/* Filter Panel */}
-            <div style={{
+            {/* Mobile Search Button - Only visible on mobile */}
+            <button
+              className="mobile-search-button"
+              onClick={() => setShowMobileSearch(true)}
+              style={{
+                position: 'absolute',
+                top: 12,
+                left: 12,
+                zIndex: 20,
+                padding: '10px 16px',
+                background: 'rgba(12,10,9,0.95)',
+                border: '1px solid #44403c',
+                borderRadius: 8,
+                color: '#a8a29e',
+                fontSize: 14,
+                cursor: 'pointer',
+                display: 'none',
+                alignItems: 'center',
+                gap: 8
+              }}
+            >
+              <SearchIcon size={18} />
+              Search sites...
+            </button>
+
+            {/* Filter Panel - Hidden on mobile */}
+            <div className="desktop-filters" style={{
               position: 'absolute',
               top: 12,
               left: 12,
@@ -5539,8 +5565,8 @@ function App() {
               )}
             </div>
 
-            {/* Country selector and back button */}
-            <div style={{
+            {/* Country selector and back button - Hidden on mobile */}
+            <div className="desktop-country-selector" style={{
               position: 'absolute',
               top: 12,
               right: 12,
@@ -6271,6 +6297,225 @@ function App() {
             </div>
           )}
         </div>
+
+        {/* Mobile Search Panel */}
+        {showMobileSearch && (
+          <div
+            className="mobile-search-overlay"
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.7)',
+              zIndex: 999,
+              display: 'flex',
+              flexDirection: 'column'
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setShowMobileSearch(false);
+            }}
+          >
+            <div
+              className="mobile-search-panel"
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                background: '#1c1917',
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                maxHeight: '85vh',
+                overflowY: 'auto',
+                animation: 'slideUpSheet 0.3s ease-out'
+              }}
+            >
+              {/* Drag handle */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                padding: '12px 0 8px'
+              }}>
+                <div style={{
+                  width: 40,
+                  height: 4,
+                  background: '#44403c',
+                  borderRadius: 2
+                }} />
+              </div>
+
+              {/* Close button */}
+              <button
+                onClick={() => setShowMobileSearch(false)}
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  width: 32,
+                  height: 32,
+                  background: '#292524',
+                  border: 'none',
+                  borderRadius: '50%',
+                  color: '#a8a29e',
+                  fontSize: 18,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ×
+              </button>
+
+              {/* Search input */}
+              <div style={{ padding: '8px 20px 16px' }}>
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '14px 16px',
+                  background: '#292524',
+                  border: '2px solid #44403c',
+                  borderRadius: 12
+                }}>
+                  <SearchIcon size={20} />
+                  <input
+                    type="text"
+                    placeholder="Search sites, eras, types..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    autoFocus
+                    style={{
+                      flex: 1,
+                      background: 'none',
+                      border: 'none',
+                      outline: 'none',
+                      color: '#fafaf9',
+                      fontSize: 16
+                    }}
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#78716c',
+                        cursor: 'pointer',
+                        padding: 4
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick filter chips */}
+              <div style={{ padding: '0 20px 16px' }}>
+                <div style={{ fontSize: 12, color: '#78716c', marginBottom: 8 }}>Quick filters</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {['Roman', 'Ottoman', 'Fortress', 'Museum', 'Religious', 'Natural'].map(filter => (
+                    <button
+                      key={filter}
+                      onClick={() => setSearchQuery(filter)}
+                      style={{
+                        padding: '8px 14px',
+                        background: searchQuery.toLowerCase() === filter.toLowerCase() ? '#b45309' : '#292524',
+                        border: 'none',
+                        borderRadius: 20,
+                        color: '#fafaf9',
+                        fontSize: 13,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Search results */}
+              <div style={{ padding: '0 20px 20px' }}>
+                <div style={{ fontSize: 12, color: '#78716c', marginBottom: 12 }}>
+                  {searchQuery ? `${searchResults.length} results` : `${visibleSites.length} sites available`}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {(searchQuery ? searchResults : visibleSites).slice(0, 10).map(site => (
+                    <div
+                      key={site.id}
+                      onClick={() => {
+                        setSelectedSite(site);
+                        setShowMobileSearch(false);
+                        setSearchQuery('');
+                        setMobileSheetHeight('half');
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        padding: 12,
+                        background: '#292524',
+                        borderRadius: 10,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <div style={{
+                        width: 50,
+                        height: 50,
+                        borderRadius: 8,
+                        background: `url(${site.image}) center/cover`,
+                        flexShrink: 0
+                      }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 600,
+                          fontSize: 14,
+                          marginBottom: 4,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {site.name}
+                        </div>
+                        <div style={{
+                          display: 'flex',
+                          gap: 6,
+                          alignItems: 'center',
+                          fontSize: 12,
+                          color: '#78716c'
+                        }}>
+                          <span style={{
+                            padding: '2px 6px',
+                            background: getEraColor(site.era[0]),
+                            borderRadius: 4,
+                            fontSize: 10
+                          }}>
+                            {site.era[0]}
+                          </span>
+                          <span>{site.type}</span>
+                        </div>
+                      </div>
+                      <div style={{ color: '#44403c' }}>→</div>
+                    </div>
+                  ))}
+                </div>
+                {(searchQuery ? searchResults : visibleSites).length > 10 && (
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '16px 0',
+                    color: '#78716c',
+                    fontSize: 13
+                  }}>
+                    Showing 10 of {(searchQuery ? searchResults : visibleSites).length} results
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <style>{`
           @keyframes pop {

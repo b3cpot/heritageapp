@@ -347,6 +347,21 @@ select:focus-visible {
     width: 36px !important;
     height: 36px !important;
   }
+
+  /* Hide desktop filters on mobile */
+  .desktop-filters {
+    display: none !important;
+  }
+
+  /* Hide desktop country selector on mobile */
+  .desktop-country-selector {
+    display: none !important;
+  }
+
+  /* Show mobile search button */
+  .mobile-search-button {
+    display: flex !important;
+  }
 }
 
 /* ============================================
