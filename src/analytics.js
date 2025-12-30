@@ -14,10 +14,12 @@ export const initAnalytics = () => {
       autocapture: true,
       // Privacy-friendly
       respect_dnt: true,
-      // Session recording (optional)
-      disable_session_recording: false,
+      // Disable session recording to avoid 404 errors
+      disable_session_recording: true,
       // Persistence
       persistence: 'localStorage',
+      // Disable config fetch that causes 404
+      advanced_disable_decide: true,
     });
     console.log('📊 PostHog analytics initialized');
   }
