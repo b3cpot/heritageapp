@@ -4,9 +4,11 @@
   "description": "Interactive TimeMap for Albanian & Kosovar Heritage - Explore 8000 years of history",
   "private": true,
   "dependencies": {
+    "@sentry/react": "^10.32.1",
     "@supabase/supabase-js": "^2.89.0",
     "i18next": "^25.7.3",
     "mapbox-gl": "^3.17.0",
+    "posthog-js": "^1.311.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-i18next": "^16.5.0",
